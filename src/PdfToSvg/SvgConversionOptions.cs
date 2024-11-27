@@ -8,6 +8,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using PdfToSvg.Drawing;
 
 namespace PdfToSvg
 {
@@ -87,12 +88,12 @@ namespace PdfToSvg
         ///     mapping specified by the document, providing more accurate text representation.
         /// </para>
         /// <para>
-        ///     When exporting text using <see cref="FontResolver.EmbedOpenType">FontResolver.EmbedOpenType</see> or 
+        ///     When exporting text using <see cref="FontResolver.EmbedOpenType">FontResolver.EmbedOpenType</see> or
         ///     <see cref="FontResolver.EmbedWoff">FontResolver.EmbedWoff</see>,
-        ///     the library will remap duplicate character codes to  characters in the 
+        ///     the library will remap duplicate character codes to  characters in the
         ///     <see href="https://en.wikipedia.org/wiki/Private_Use_Areas">Private Use Areas</see>, making sure the
         ///     exported SVG’s are visually accurate, but text might appear as a series of question marks, <c>������</c>,
-        ///     in the SVG markup. If you intend to extract text from the SVG, consider exporting the SVG using 
+        ///     in the SVG markup. If you intend to extract text from the SVG, consider exporting the SVG using
         ///     <see cref="FontResolver.LocalFonts">local fonts</see> instead.
         /// </para>
         /// </remarks>
@@ -105,7 +106,7 @@ namespace PdfToSvg
 
         /// <summary>
         /// Gets or sets the minimum stroke width that will be used in the resulting SVG.
-        /// If the PDF use a thinner stroke width, it will be replaced with this width. 
+        /// If the PDF use a thinner stroke width, it will be replaced with this width.
         /// The default value is 0.5.
         /// </summary>
         /// <remarks>
@@ -178,7 +179,7 @@ namespace PdfToSvg
         /// {
         ///     IncludeLinks = false,
         /// };
-        /// 
+        ///
         /// using (var doc = PdfDocument.Open("input.pdf"))
         /// {
         ///     var pageNo = 1;
@@ -273,7 +274,7 @@ namespace PdfToSvg
         /// {
         ///     IncludeAnnotations = false,
         /// };
-        /// 
+        ///
         /// using (var doc = PdfDocument.Open("input.pdf"))
         /// {
         ///     var pageNo = 1;
@@ -328,7 +329,7 @@ namespace PdfToSvg
         /// {
         ///     IncludeHiddenText = false,
         /// };
-        /// 
+        ///
         /// using (var doc = PdfDocument.Open("input.pdf"))
         /// {
         ///     var pageNo = 1;
@@ -348,5 +349,10 @@ namespace PdfToSvg
         /// </summary>
         public bool DebugLogOperators { get; set; }
 #endif
+
+        /// <summary>
+        /// If <c>true</c>, throw <see cref="PdfImageCannotBeRenderedException"/> when image cannot be rendered (e.g. format is not supported).
+        /// </summary>
+        public bool ThrowIfCannotBeRendered { get; set; } = false;
     }
 }

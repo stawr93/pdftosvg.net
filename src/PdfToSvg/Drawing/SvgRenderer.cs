@@ -162,7 +162,7 @@ namespace PdfToSvg.Drawing
                 style,
                 defs);
 
-            // PDF coordinate system has its origin in the bottom left corner in opposite to SVG, 
+            // PDF coordinate system has its origin in the bottom left corner in opposite to SVG,
             // which has its origin in the upper left corner.
             graphicsState.Transform = MoveOriginToTopLeft(cropBox);
             originalTransform = graphicsState.Transform;
@@ -1236,6 +1236,12 @@ namespace PdfToSvg.Drawing
             if (imageId == null)
             {
                 // Missing image
+
+                if (options.ThrowIfCannotBeRendered)
+                {
+                    throw new PdfImageCannotBeRenderedException();
+                }
+
                 // Replace with broken image icon
 
                 if (defIds.Add(BrokenImageSymbolId))
@@ -2461,7 +2467,7 @@ namespace PdfToSvg.Drawing
         private static List<TextParagraph> PrepareSvgSpans(List<TextParagraph> paragraphs, bool includeHiddenText)
         {
             // Horizontal scaling is resalized using the textLength attribute, which ensures any stroke
-            // is not affected by the scaling. However, the support for textLength is rather buggy in 
+            // is not affected by the scaling. However, the support for textLength is rather buggy in
             // some browsers (looking at you, Chrome), so we need to ensure textLength is only used on
             // <text> elements without any child <tspan>.
 
@@ -2944,7 +2950,7 @@ namespace PdfToSvg.Drawing
                     if (graphicsState.ClipPath.Rectangle.Contains(textBoundingRect))
                     {
                         // We can be reasonably sure the text is entirely contained within the clip rectangle.
-                        // Skip clipping. This significally increases the print quality in Internet Explorer, 
+                        // Skip clipping. This significally increases the print quality in Internet Explorer,
                         // which seems to rasterize all clipped graphics before printing.
                         ignoreClipRect = true;
                     }
