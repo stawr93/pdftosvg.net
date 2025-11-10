@@ -17,6 +17,9 @@ namespace PdfToSvg.Drawing
     {
         private const string Hex = "0123456789abcdef";
 
+        public const double CoordinateResolution = 0.0001;
+        public const double TextOffsetResolution = 0.01;
+
         private static string FormatRgbComponent(float component)
         {
             var intComponent = (int)(component * 255);
@@ -266,10 +269,6 @@ namespace PdfToSvg.Drawing
                             if (previous == null)
                             {
                                 result.Append("M" + FormatCoordinate(dest.Diff.X) + " " + FormatCoordinate(dest.Diff.Y));
-                            }
-                            else if (dest.Diff.X == 0 && dest.Diff.Y == 0)
-                            {
-                                // Skip noop command
                             }
                             else
                             {
