@@ -23,6 +23,8 @@ namespace PdfToSvg
 
         private static readonly FontRepository emptyFontRepository = new();
 
+        private const int FontCacheMaxSize = 50;
+
         public SharedFactory<BaseFont> GetFontFactory(PdfDictionary fontDict, FontResolver fontResolver, FontRepository fontRepository, Func<SharedFactory<BaseFont>> fontFactory)
         {
             // Shared cache for all empty font repositories
@@ -30,7 +32,7 @@ namespace PdfToSvg
             {
                 fontRepository = emptyFontRepository;
             }
-
+            
             lock (fontCache)
             {
                 if (!fontCache.TryGetValue(fontResolver, out var repositories))
@@ -47,6 +49,14 @@ namespace PdfToSvg
 
                 if (!factories.TryGetValue(fontDict, out var factory))
                 {
+                    if (factories.Count >= FontCacheMaxSize)
+                    {
+                        // If a PDF with many pages include duplicated fonts per page, a lot of fonts are cached and
+                        // causing OutOfMemoryException, mainly in 32-bit processes. Because of this, we will limit the
+                        // maximum number of fonts to be cached.
+                        factories.Clear();
+                    }
+
                     factory = fontFactory();
                     factories[fontDict] = factory;
                 }
