@@ -17,6 +17,7 @@ using System.Xml.Linq;
 
 namespace PdfToSvg.Tests
 {
+    [Parallelizable(ParallelScope.Children)]
     public class ConversionTests
     {
         private static string RecompressPngs(string svgMarkup)
