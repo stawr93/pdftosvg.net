@@ -183,10 +183,11 @@ namespace PdfToSvg.Tests
         [TestCaseSource(nameof(FontTestCases))]
         public async Task ConvertEmbeddedAsync(string fileName)
         {
-            await ConvertAsync(fileName, "embedded-" + fileName, new SvgConversionOptions
-            {
-                FontResolver = FontResolver.EmbedOpenType,
-            });
+            var options = new SvgConversionOptions();
+            options.FontRepository.AddDirectory(TestFiles.ExternalFontsDirectory, allowEmbedding: true);
+            options.FontResolver = FontResolver.EmbedOpenType;
+
+            await ConvertAsync(fileName, "embedded-" + fileName, options);
         }
 #endif
 
@@ -202,10 +203,21 @@ namespace PdfToSvg.Tests
         [TestCaseSource(nameof(FontTestCases))]
         public void ConvertEmbeddedSync(string fileName)
         {
-            ConvertSync(fileName, "embedded-" + fileName, new SvgConversionOptions
-            {
-                FontResolver = FontResolver.EmbedOpenType,
-            });
+            var options = new SvgConversionOptions();
+            options.FontRepository.AddDirectory(TestFiles.ExternalFontsDirectory, allowEmbedding: true);
+            options.FontResolver = FontResolver.EmbedOpenType;
+
+            ConvertSync(fileName, "embedded-" + fileName, options);
+        }
+
+        [TestCaseSource(nameof(ExternalFontTestCases))]
+        public void ConvertNonEmbeddedSync(string fileName)
+        {
+            var options = new SvgConversionOptions();
+            options.FontRepository.AddDirectory(TestFiles.ExternalFontsDirectory, allowEmbedding: false);
+            options.FontResolver = FontResolver.EmbedOpenType;
+
+            ConvertSync(fileName, "nonembedded-" + fileName, options);
         }
 
         [Test]
@@ -344,6 +356,17 @@ namespace PdfToSvg.Tests
             {
                 return Directory
                     .EnumerateFiles(Path.Combine(TestFiles.InputDirectory), "fonts-*.pdf")
+                    .Select(path => new TestCaseData(Path.GetFileName(path)))
+                    .ToList();
+            }
+        }
+
+        public static List<TestCaseData> ExternalFontTestCases
+        {
+            get
+            {
+                return Directory
+                    .EnumerateFiles(Path.Combine(TestFiles.InputDirectory), "fonts-external-*.pdf")
                     .Select(path => new TestCaseData(Path.GetFileName(path)))
                     .ToList();
             }

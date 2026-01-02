@@ -5,11 +5,14 @@
 using PdfToSvg.Common;
 using PdfToSvg.Fonts.OpenType.Enums;
 using PdfToSvg.Fonts.OpenType.Utils;
+using PdfToSvg.IO;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace PdfToSvg.Fonts.OpenType.Tables
@@ -127,33 +130,36 @@ namespace PdfToSvg.Fonts.OpenType.Tables
             }
         }
 
-        public static TableDirectory Read(byte[] data)
+        private const int HeaderSize = 12;
+        private const int TableRecordSize = 4 * 4;
+
+        private static void ReadHeader(OpenTypeReader reader, out SfntVersion sfntVersion, out int numTables)
         {
-            var reader = new OpenTypeReader(data, 0, data.Length);
-            var result = new TableDirectory();
+            sfntVersion = (SfntVersion)reader.ReadUInt32();
 
-            result.SfntVersion = (SfntVersion)reader.ReadUInt32();
-
-            if (result.SfntVersion != SfntVersion.TrueType &&
-                result.SfntVersion != SfntVersion.Cff &&
-                result.SfntVersion != SfntVersion.True &&
-                result.SfntVersion != SfntVersion.Typ1)
+            if (sfntVersion != SfntVersion.TrueType &&
+                sfntVersion != SfntVersion.Cff &&
+                sfntVersion != SfntVersion.True &&
+                sfntVersion != SfntVersion.Typ1)
             {
-                throw new OpenTypeException("Unknown sfntVersion " + result.SfntVersion + ".");
+                throw new OpenTypeException("Unknown sfntVersion " + sfntVersion + ".");
             }
 
-            if (result.SfntVersion == SfntVersion.True ||
-                result.SfntVersion == SfntVersion.Typ1)
+            if (sfntVersion == SfntVersion.True ||
+                sfntVersion == SfntVersion.Typ1)
             {
-                result.SfntVersion = SfntVersion.TrueType;
+                sfntVersion = SfntVersion.TrueType;
             }
 
-            var numTables = reader.ReadUInt16();
+            numTables = reader.ReadUInt16();
             var searchRange = reader.ReadUInt16();
             var entrySelector = reader.ReadUInt16();
             var rangeShift = reader.ReadUInt16();
+        }
 
-            var tableRecords = new List<TableRecord>();
+        private static void ReadTableDirectory(OpenTypeReader reader, int numTables, out TableRecord[] tableRecords)
+        {
+            tableRecords = new TableRecord[numTables];
 
             for (var i = 0; i < numTables; i++)
             {
@@ -163,41 +169,170 @@ namespace PdfToSvg.Fonts.OpenType.Tables
                 table.Offset = reader.ReadInt32();
                 table.Length = reader.ReadInt32();
 
-                tableRecords.Add(table);
+                tableRecords[i] = table;
             }
+        }
+
+        private static void ReadTable(OpenTypeReader reader, TableRecord record, List<IBaseTable> tables)
+        {
+            var context = new OpenTypeReaderContext(record.TableTag, tables);
+
+            var tagCandidates = new[] { record.TableTag, null };
+
+            var table = tagCandidates
+                .SelectMany(tag => tableFactories[tag])
+                .Select(tableFactory =>
+                {
+                    reader.Position = 0;
+                    return tableFactory.Create(reader, context);
+                })
+                .FirstOrDefault(t => t != null);
+
+            if (table == null)
+            {
+                throw new OpenTypeException("Failed to parse table of type " + record.TableTag + ".");
+            }
+
+            tables.Add(table);
+        }
+
+        public static TableDirectory Read(byte[] data, Func<string, bool>? tableFilter = null)
+        {
+            var reader = new OpenTypeReader(data, 0, data.Length);
+            var result = new TableDirectory();
+
+            ReadHeader(reader, out result.SfntVersion, out var numTables);
+            ReadTableDirectory(reader, numTables, out var tableRecords);
 
             OptimalTableOrder.ReadSort(tableRecords, x => x.TableTag);
 
-            var tables = new List<IBaseTable>(tableRecords.Count);
+            var tables = new List<IBaseTable>(tableRecords.Length);
 
-            for (var i = 0; i < tableRecords.Count; i++)
+            for (var i = 0; i < tableRecords.Length; i++)
             {
                 var record = tableRecords[i];
-                var localReader = new OpenTypeReader(data, record.Offset, record.Length);
-                var context = new OpenTypeReaderContext(record.TableTag, tables);
 
-                var tagCandidates = new[] { record.TableTag, null };
-
-                var table = tagCandidates
-                    .SelectMany(tag => tableFactories[tag])
-                    .Select(tableFactory =>
-                    {
-                        localReader.Position = 0;
-                        return tableFactory.Create(localReader, context);
-                    })
-                    .FirstOrDefault(t => t != null);
-
-                if (table == null)
+                if (tableFilter != null && tableFilter(record.TableTag) == false)
                 {
-                    throw new OpenTypeException("Failed to parse table of type " + record.TableTag + ".");
+                    continue;
                 }
 
-                tables.Add(table);
+                var tableReader = new OpenTypeReader(data, record.Offset, record.Length);
+                ReadTable(tableReader, record, tables);
             }
 
             result.Tables = tables.ToArray();
 
             return result;
         }
+
+        public static TableDirectory Read(Stream data, Func<string, bool>? tableFilter, CancellationToken cancellationToken)
+        {
+            var buffer = new byte[10240];
+
+            void EnsureBufferCapacity(int desiredCapacity)
+            {
+                if (buffer.Length < desiredCapacity)
+                {
+                    buffer = new byte[desiredCapacity * 2];
+                }
+            }
+
+            var headerSize = data.ReadAll(buffer, 0, HeaderSize, cancellationToken);
+
+            var reader = new OpenTypeReader(buffer, 0, headerSize);
+            var result = new TableDirectory();
+
+            ReadHeader(reader, out result.SfntVersion, out var numTables);
+
+            EnsureBufferCapacity(numTables * TableRecordSize);
+
+            var tableDirectorySize = data.ReadAll(buffer, 0, numTables * TableRecordSize, cancellationToken);
+            reader = new OpenTypeReader(buffer, 0, tableDirectorySize);
+
+            ReadTableDirectory(reader, numTables, out var tableRecords);
+
+            OptimalTableOrder.ReadSort(tableRecords, x => x.TableTag);
+
+            var tables = new List<IBaseTable>(tableRecords.Length);
+
+            for (var i = 0; i < tableRecords.Length; i++)
+            {
+                var record = tableRecords[i];
+
+                if (tableFilter != null && tableFilter(record.TableTag) == false)
+                {
+                    continue;
+                }
+
+                data.Position = record.Offset;
+
+                EnsureBufferCapacity(record.Length);
+
+                var tableSize = data.ReadAll(buffer, 0, record.Length, cancellationToken);
+                var tableReader = new OpenTypeReader(buffer, 0, tableSize);
+
+                ReadTable(tableReader, record, tables);
+            }
+
+            result.Tables = tables.ToArray();
+
+            return result;
+        }
+
+#if HAVE_ASYNC
+        public static async Task<TableDirectory> ReadAsync(Stream data, Func<string, bool>? tableFilter, CancellationToken cancellationToken)
+        {
+            var buffer = new byte[10240];
+
+            void EnsureBufferCapacity(int desiredCapacity)
+            {
+                if (buffer.Length < desiredCapacity)
+                {
+                    buffer = new byte[desiredCapacity * 2];
+                }
+            }
+
+            var headerSize = await data.ReadAllAsync(buffer, 0, HeaderSize, cancellationToken).ConfigureAwait(false);
+
+            var reader = new OpenTypeReader(buffer, 0, headerSize);
+            var result = new TableDirectory();
+
+            ReadHeader(reader, out result.SfntVersion, out var numTables);
+
+            EnsureBufferCapacity(numTables * TableRecordSize);
+
+            var tableDirectorySize = await data.ReadAllAsync(buffer, 0, numTables * TableRecordSize, cancellationToken).ConfigureAwait(false);
+            reader = new OpenTypeReader(buffer, 0, tableDirectorySize);
+            ReadTableDirectory(reader, numTables, out var tableRecords);
+
+            OptimalTableOrder.ReadSort(tableRecords, x => x.TableTag);
+
+            var tables = new List<IBaseTable>(tableRecords.Length);
+
+            for (var i = 0; i < tableRecords.Length; i++)
+            {
+                var record = tableRecords[i];
+
+                if (tableFilter != null && tableFilter(record.TableTag) == false)
+                {
+                    continue;
+                }
+
+                data.Position = record.Offset;
+
+                EnsureBufferCapacity(record.Length);
+
+                var tableSize = await data.ReadAllAsync(buffer, 0, record.Length, cancellationToken).ConfigureAwait(false);
+                var tableReader = new OpenTypeReader(buffer, 0, tableSize);
+
+                ReadTable(tableReader, record, tables);
+            }
+
+            result.Tables = tables.ToArray();
+
+            return result;
+        }
+#endif
     }
 }

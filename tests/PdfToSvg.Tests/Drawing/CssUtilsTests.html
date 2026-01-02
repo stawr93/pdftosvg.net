@@ -1,0 +1,58 @@
+<html>
+<head>
+    <style>
+        div {
+            margin: 1em 0;
+        }
+
+        span {
+            white-space: pre;
+            border: 1px solid red;
+        }
+
+        .tabs::before {
+            content: "Value1\9Value2\9Value3";
+        }
+
+        .single-quote::before {
+            content: "This string contains 'single' quotation marks";
+        }
+
+        .double-quote::before {
+            content: "This string contains \"double\" quotation marks";
+        }
+
+        .backslash::before {
+            content: "This string contains \\ a backslash";
+        }
+
+        .newline::before {
+            content: "This is a string\d\aspanning multiple\alines";
+        }
+
+        .unicode::before {
+            content: "Go to \21e8\9the right!";
+        }
+
+        .multilingual::before {
+            content: "Time for \1f37f  popcorn!";
+        }
+
+        .escaped-char-followed-by-hex::before {
+            content: "Sum of zero: \2211 0";
+        }
+    </style>
+</head>
+<body>
+
+    <div><span class="tabs"></span></div>
+    <div><span class="single-quote"></span></div>
+    <div><span class="double-quote"></span></div>
+    <div><span class="backslash"></span></div>
+    <div><span class="newline"></span></div>
+    <div><span class="unicode"></span></div>
+    <div><span class="multilingual"></span></div>
+    <div><span class="escaped-char-followed-by-hex"></span></div>
+
+</body>
+</html>

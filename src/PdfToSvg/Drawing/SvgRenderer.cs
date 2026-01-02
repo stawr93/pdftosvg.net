@@ -2330,7 +2330,7 @@ namespace PdfToSvg.Drawing
         [Operation("Tf")]
         private void Tf_Font(PdfName fontName, double fontSize)
         {
-            var newFont = resources.GetFont(fontName, options.FontResolver, documentCache, cancellationToken);
+            var newFont = resources.GetFont(fontName, options.FontResolver, options.FontRepository, documentCache, cancellationToken);
             if (newFont == null)
             {
                 Log.WriteLine($"Could not find a font replacement for {fontName}.");
@@ -2345,7 +2345,7 @@ namespace PdfToSvg.Drawing
         private async Task Tf_FontAsync(PdfName fontName, double fontSize)
         {
             var newFont = await resources
-                .GetFontAsync(fontName, options.FontResolver, documentCache, cancellationToken)
+                .GetFontAsync(fontName, options.FontResolver, options.FontRepository, documentCache, cancellationToken)
                 .ConfigureAwait(false);
 
             if (newFont == null)
@@ -2366,7 +2366,7 @@ namespace PdfToSvg.Drawing
 
             if (args.Length > 0 && args[0] is PdfDictionary fontDict)
             {
-                font = BaseFont.Create(fontDict, options.FontResolver, cancellationToken);
+                font = BaseFont.Create(fontDict, options.FontResolver, options.FontRepository, cancellationToken);
             }
 
             if (args.Length > 1 && MathUtils.ToDouble(args[1], out var dblFontSize))
@@ -2584,7 +2584,7 @@ namespace PdfToSvg.Drawing
             var substituteFont = style.Font.SubstituteFont;
             if (style.HasGlyph0Reference && substituteFont is WebFont)
             {
-                substituteFont = style.Font.GetSubstituteFontWithDuplicatedGlyph0(options.FontResolver, cancellationToken);
+                substituteFont = style.Font.GetSubstituteFontWithDuplicatedGlyph0(options.FontResolver, options.FontRepository, cancellationToken);
             }
 
             if (substituteFont is LocalFont localFont)
@@ -2592,6 +2592,53 @@ namespace PdfToSvg.Drawing
                 fontFamily = localFont.FontFamily;
                 fontWeight = SvgConversion.FormatFontWeight(localFont.FontWeight);
                 fontStyle = SvgConversion.FormatFontStyle(localFont.FontStyle);
+
+                // Use `local(<name>)` to identify the exact font used. Which name to be used is platform specific.
+                // According to the CSS spec, the PostScript name (nameID = 6) is normally used, except for TrueType
+                // fonts on Windows, where the full font name (nameID = 4) is used.
+                //
+                // See:
+                // https://www.w3.org/TR/css-fonts-4/#local-font-fallback
+                // https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/At-rules/@font-face/src#localfont-face-name
+
+                var localFontNames = new[]
+                {
+                    localFont.PostScriptName,
+                    localFont.FullFontName,
+                };
+                var fontSrc = "";
+
+                for (var i = 0; i < localFontNames.Length; i++)
+                {
+                    var localFontName = localFontNames[i];
+                    if (localFontName != null && localFontName.Length > 0)
+                    {
+                        fontSrc =
+                            fontSrc +
+                            (fontSrc.Length > 0 ? "," : "") +
+                            "local(" + CssUtils.EncodeString(localFontName) + ")";
+                    }
+                }
+
+                if (fontSrc.Length > 0)
+                {
+                    var localFontFamilyName = StableID.Generate("f", fontSrc);
+
+                    if (fontFaceNames.Add(localFontFamilyName))
+                    {
+                        var fontFace = new CssPropertyCollection
+                        {
+                            { "font-family", localFontFamilyName },
+                            { "font-weight", fontWeight },
+                            { "font-style", fontStyle },
+                            { "src", fontSrc },
+                        };
+
+                        AddStyle("@font-face{" + fontFace + "}");
+                    }
+
+                    fontFamily = localFontFamilyName + "," + fontFamily;
+                }
             }
             else if (substituteFont is WebFont webFont)
             {
@@ -2623,8 +2670,8 @@ namespace PdfToSvg.Drawing
                     var fontFace = new CssPropertyCollection
                     {
                         { "font-family", webFont.FontFamily },
-                        { "font-weight", SvgConversion.FormatFontWeight(webFont.FallbackFont?.FontWeight) },
-                        { "font-style", SvgConversion.FormatFontStyle(webFont.FallbackFont?.FontStyle) },
+                        { "font-weight", fontWeight },
+                        { "font-style", fontStyle },
                         { "src", src },
                     };
 

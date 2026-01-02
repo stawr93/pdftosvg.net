@@ -59,11 +59,11 @@ namespace PdfToSvg.Drawing
             return shading;
         }
 
-        public BaseFont? GetFont(PdfName fontName, FontResolver fontResolver, DocumentCache documentCache, CancellationToken cancellationToken)
+        public BaseFont? GetFont(PdfName fontName, FontResolver fontResolver, FontRepository fontRepository, DocumentCache documentCache, CancellationToken cancellationToken)
         {
             if (!fonts.TryGetValue(fontName, out var font))
             {
-                var factory = GetFontFactory(fontName, fontResolver, documentCache);
+                var factory = GetFontFactory(fontName, fontResolver, fontRepository, documentCache);
                 if (factory != null)
                 {
                     font = factory.GetResult(cancellationToken);
@@ -75,11 +75,11 @@ namespace PdfToSvg.Drawing
         }
 
 #if HAVE_ASYNC
-        public async Task<BaseFont?> GetFontAsync(PdfName fontName, FontResolver fontResolver, DocumentCache documentCache, CancellationToken cancellationToken)
+        public async Task<BaseFont?> GetFontAsync(PdfName fontName, FontResolver fontResolver, FontRepository fontRepository, DocumentCache documentCache, CancellationToken cancellationToken)
         {
             if (!fonts.TryGetValue(fontName, out var font))
             {
-                var factory = GetFontFactory(fontName, fontResolver, documentCache);
+                var factory = GetFontFactory(fontName, fontResolver, fontRepository, documentCache);
                 if (factory != null)
                 {
                     font = await factory.GetResultAsync(cancellationToken).ConfigureAwait(false);
@@ -91,29 +91,14 @@ namespace PdfToSvg.Drawing
         }
 #endif
 
-        private SharedFactory<BaseFont>? GetFontFactory(PdfName fontName, FontResolver fontResolver, DocumentCache documentCache)
+        private SharedFactory<BaseFont>? GetFontFactory(PdfName fontName, FontResolver fontResolver, FontRepository fontRepository, DocumentCache documentCache)
         {
             if (Dictionary.TryGetDictionary(Names.Font / fontName, out var fontDict))
             {
-                SharedFactory<BaseFont> factory;
-
-                lock (documentCache.Fonts)
-                {
-                    if (!documentCache.Fonts.TryGetValue(fontResolver, out var factories))
-                    {
-                        factories = new Dictionary<PdfDictionary, SharedFactory<BaseFont>>();
-                        documentCache.Fonts.Add(fontResolver, factories);
-                    }
-
-                    if (!factories.TryGetValue(fontDict, out factory!))
-                    {
-                        factory = SharedFactory.Create(
-                            cancellationToken => BaseFont.Create(fontDict, fontResolver, cancellationToken),
-                            cancellationToken => BaseFont.CreateAsync(fontDict, fontResolver, cancellationToken));
-                        factories[fontDict] = factory;
-                    }
-                }
-
+                var factory = documentCache.GetFontFactory(fontDict, fontResolver, fontRepository, () =>
+                    SharedFactory.Create(
+                        cancellationToken => BaseFont.Create(fontDict, fontResolver, fontRepository, cancellationToken),
+                        cancellationToken => BaseFont.CreateAsync(fontDict, fontResolver, fontRepository, cancellationToken)));
                 return factory;
             }
 

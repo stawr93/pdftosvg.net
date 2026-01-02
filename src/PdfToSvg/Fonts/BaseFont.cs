@@ -47,6 +47,7 @@ namespace PdfToSvg.Fonts
         protected WidthMap widthMap = WidthMap.Empty;
         protected bool isSymbolic;
         protected bool isStandardFont;
+        protected bool isExternalFont;
 
         public static BaseFont Fallback { get; } = Create(
             new PdfDictionary {
@@ -55,9 +56,14 @@ namespace PdfToSvg.Fonts
                 { InternalNames.FallbackFont, true },
             },
             FontResolver.LocalFonts,
+            new FontRepository(),
             CancellationToken.None);
 
         public override string? Name => name;
+
+        public override string? PostScriptName => openTypeFont?.Names.PostScriptName;
+        public override string? FullFontName => openTypeFont?.Names.FullFontName;
+
 
         public bool HasGlyphSubstitutions { get; private set; }
 
@@ -66,6 +72,8 @@ namespace PdfToSvg.Fonts
         public override bool CanBeExtracted => openTypeFont != null;
 
         public override bool IsStandardFont => isStandardFont;
+
+        public override bool IsExternalFont => isExternalFont;
 
         protected BaseFont() { }
 
@@ -78,12 +86,15 @@ namespace PdfToSvg.Fonts
             var fontFlags = (FontFlags)descriptor.GetValueOrDefault(Names.Flags, 0);
             isSymbolic |= fontFlags.HasFlag(FontFlags.Symbolic);
 
-            // Read font
+            // Font
             try
             {
-                PopulateOpenTypeFont(cancellationToken);
-
-                if (openTypeFont != null)
+                if (openTypeFont == null)
+                {
+                    isStandardFont = false;
+                    isExternalFont = false;
+                }
+                else
                 {
                     OpenTypeSanitizer.Sanitize(openTypeFont);
                     HasGlyphSubstitutions = openTypeFont.Tables.Any(t => t.Tag == "GSUB");
@@ -94,6 +105,7 @@ namespace PdfToSvg.Fonts
                 openTypeFont = null;
                 openTypeFontException = ex;
                 isStandardFont = false;
+                isExternalFont = false;
             }
 
             // Encoding
@@ -132,7 +144,7 @@ namespace PdfToSvg.Fonts
             chars.TryPopulate(GetChars, toUnicode, pdfFontEncoding ?? openTypeFontEncoding, widthMap, optimizeForEmbeddedFont: false);
         }
 
-        private void PopulateOpenTypeFont(CancellationToken cancellationToken)
+        private void PopulateOpenTypeFont(FontRepository fontRepository, CancellationToken cancellationToken)
         {
             if (fontDict.TryGetDictionary(Names.FontDescriptor, out var fontDescriptor) ||
                 fontDict.TryGetDictionary(Names.DescendantFonts / Indexes.First / Names.FontDescriptor, out fontDescriptor))
@@ -226,38 +238,211 @@ namespace PdfToSvg.Fonts
                 }
             }
 
-            // Standard font
             if (fontDict.TryGetName(Names.BaseFont, out var name) && !fontDict.ContainsKey(InternalNames.FallbackFont))
             {
-                var standardFont = StandardFonts.GetFont(name);
-                if (standardFont != null)
+                // Standard font
+                if (PopulateStandardFont(name))
+                {
+                    return;
+                }
+
+                // External font
+                if (fontRepository != null)
                 {
                     try
                     {
-                        var compactFontSet = CompactFontParser.Parse(standardFont.Data, maxFontCount: 1);
-
-                        openTypeFont = new OpenTypeFont();
-                        var cffTable = new CffTable { Content = compactFontSet };
-                        openTypeFont.Tables.Add(cffTable);
-
-                        openTypeFontEncoding = standardFont.Encoding;
-
-                        if (standardFont.License != null)
+                        // ISO-32000-2:2020 Section 9.5
+                        // The spec says details regarding font naming, substitution and glyph selection are
+                        // implementation-dependent. This was confirmed by testing how other PDF readers handle external
+                        // fonts.
+                        //
+                        // BaseFont should be the PostScript name of the font. We will use this as indentifer for
+                        // looking up external fonts. Note that the BaseFont name can be prepended with a six character
+                        // prefix and a plus sign if the font is subsetted. However, this should not be applicable for
+                        // external fonts.
+                        //
+                        var externalFont = fontRepository.GetFont(name.Value);
+                        if (externalFont != null)
                         {
-                            openTypeFont.Names.License = standardFont.License;
+                            openTypeFont = externalFont;
+                            isExternalFont = true;
+                            return;
                         }
-
-                        isSymbolic |= standardFont.IsSymbolic;
-                        isStandardFont = true;
                     }
                     catch (Exception ex)
                     {
-                        throw new FontException("Failed to parse standard font " + name + ".", ex);
+                        throw new FontException("Failed to parse external font " + name + ".", ex);
+                    }
+                }
+            }
+        }
+
+#if HAVE_ASYNC
+        private async Task PopulateOpenTypeFontAsync(FontRepository fontRepository, CancellationToken cancellationToken)
+        {
+            if (fontDict.TryGetDictionary(Names.FontDescriptor, out var fontDescriptor) ||
+                fontDict.TryGetDictionary(Names.DescendantFonts / Indexes.First / Names.FontDescriptor, out fontDescriptor))
+            {
+                // FontFile (Type 1)
+                if (fontDescriptor.TryGetDictionary(Names.FontFile, out var fontFile) &&
+                    fontFile.Stream != null)
+                {
+                    if (!fontFile.TryGetInteger(Names.Length1, out var length1))
+                    {
+                        throw new FontException("Failed to parse Type 1 font. Missing Length1.");
+                    }
+
+                    if (!fontFile.TryGetInteger(Names.Length2, out var length2))
+                    {
+                        throw new FontException("Failed to parse Type 1 font. Missing Length2.");
+                    }
+
+                    try
+                    {
+                        using var fontFileStream = await fontFile.Stream.OpenDecodedAsync(cancellationToken).ConfigureAwait(false);
+                        var fontFileData = fontFileStream.ToArray();
+                        var info = Type1Parser.Parse(fontFileData, length1, length2);
+
+                        openTypeFont = Type1Converter.ConvertToOpenType(info);
+                        openTypeFontEncoding = info.Encoding;
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new FontException("Failed to parse Type 1 font.", ex);
+                    }
+
+                    return;
+                }
+
+                // FontFile2 (TrueType)
+                if (fontDescriptor.TryGetStream(Names.FontFile2, out var fontFile2))
+                {
+                    try
+                    {
+                        using var fontFileStream = await fontFile2.OpenDecodedAsync(cancellationToken).ConfigureAwait(false);
+                        var fontFileData = fontFileStream.ToArray();
+                        openTypeFont = OpenTypeFont.Parse(fontFileData);
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new FontException("Failed to parse TrueType font.", ex);
+                    }
+
+                    return;
+                }
+
+                // FontFile3 (CFF or OpenType)
+                if (fontDescriptor.TryGetDictionary(Names.FontFile3, out var fontFile3) && fontFile3.Stream != null)
+                {
+                    if (fontFile3.GetNameOrNull(Names.Subtype) == Names.OpenType)
+                    {
+                        try
+                        {
+                            using var fontFileStream = await fontFile3.Stream.OpenDecodedAsync(cancellationToken).ConfigureAwait(false);
+                            var fontFileData = fontFileStream.ToArray();
+                            openTypeFont = OpenTypeFont.Parse(fontFileData);
+                        }
+                        catch (Exception ex)
+                        {
+                            throw new FontException("Failed to parse OpenType font.", ex);
+                        }
+                    }
+                    else
+                    {
+                        try
+                        {
+                            using var fontFileStream = await fontFile3.Stream.OpenDecodedAsync(cancellationToken).ConfigureAwait(false);
+                            var fontFileData = fontFileStream.ToArray();
+
+                            var compactFontSet = CompactFontParser.Parse(fontFileData, maxFontCount: 1);
+
+                            openTypeFont = new OpenTypeFont();
+                            var cffTable = new CffTable { Content = compactFontSet };
+                            openTypeFont.Tables.Add(cffTable);
+
+                            openTypeFontEncoding = compactFontSet.Fonts.FirstOrDefault()?.Encoding;
+                        }
+                        catch (Exception ex)
+                        {
+                            throw new FontException("Failed to parse CFF font.", ex);
+                        }
                     }
 
                     return;
                 }
             }
+
+            if (fontDict.TryGetName(Names.BaseFont, out var name) && !fontDict.ContainsKey(InternalNames.FallbackFont))
+            {
+                // Standard font
+                if (PopulateStandardFont(name))
+                {
+                    return;
+                }
+
+                // External font
+                if (fontRepository != null)
+                {
+                    try
+                    {
+                        // ISO-32000-2:2020 Section 9.5
+                        // The spec says details regarding font naming, substitution and glyph selection are
+                        // implementation-dependent. This was confirmed by testing how other PDF readers handle external
+                        // fonts.
+                        //
+                        // BaseFont should be the PostScript name of the font. We will use this as indentifer for
+                        // looking up external fonts. Note that the BaseFont name can be prepended with a six character
+                        // prefix and a plus sign if the font is subsetted. However, this should not be applicable for
+                        // external fonts.
+                        //
+                        var externalFont = await fontRepository.GetFontAsync(name.Value).ConfigureAwait(false);
+                        if (externalFont != null)
+                        {
+                            openTypeFont = externalFont;
+                            isExternalFont = true;
+                            return;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new FontException("Failed to parse external font " + name + ".", ex);
+                    }
+                }
+            }
+        }
+#endif
+
+        private bool PopulateStandardFont(PdfName name)
+        {
+            var standardFont = StandardFonts.GetFont(name);
+            if (standardFont != null)
+            {
+                try
+                {
+                    var compactFontSet = CompactFontParser.Parse(standardFont.Data, maxFontCount: 1);
+
+                    openTypeFont = new OpenTypeFont();
+                    var cffTable = new CffTable { Content = compactFontSet };
+                    openTypeFont.Tables.Add(cffTable);
+
+                    openTypeFontEncoding = standardFont.Encoding;
+
+                    if (standardFont.License != null)
+                    {
+                        openTypeFont.Names.License = standardFont.License;
+                    }
+
+                    isSymbolic |= standardFont.IsSymbolic;
+                    isStandardFont = true;
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    throw new FontException("Failed to parse standard font " + name + ".", ex);
+                }
+            }
+
+            return false;
         }
 
         protected virtual IEnumerable<CharInfo> GetChars()
@@ -366,11 +551,11 @@ namespace PdfToSvg.Fonts
             }
         }
 
-        public Font GetSubstituteFontWithDuplicatedGlyph0(FontResolver fontResolver, CancellationToken cancellationToken)
+        public Font GetSubstituteFontWithDuplicatedGlyph0(FontResolver fontResolver, FontRepository fontRepository, CancellationToken cancellationToken)
         {
             if (substituteFontDuplicatedGlyph0 == null)
             {
-                var withDuplicatedGlyph0 = Create(fontDict, fontResolver, Glyph0Options.Duplicate, cancellationToken);
+                var withDuplicatedGlyph0 = Create(fontDict, fontResolver, fontRepository, Glyph0Options.Duplicate, cancellationToken);
                 var substituteFont = withDuplicatedGlyph0.SubstituteFont;
                 Interlocked.CompareExchange(ref substituteFontDuplicatedGlyph0, substituteFont, null);
             }
@@ -544,7 +729,6 @@ namespace PdfToSvg.Fonts
         private static BaseFont CreateCore(PdfDictionary fontDict, Glyph0Options glyph0Options, CancellationToken cancellationToken)
         {
             if (fontDict == null) throw new ArgumentNullException(nameof(fontDict));
-            cancellationToken.ThrowIfCancellationRequested();
 
             BaseFont? font = null;
 
@@ -583,40 +767,76 @@ namespace PdfToSvg.Fonts
             return font;
         }
 
-        public static BaseFont Create(PdfDictionary fontDict, FontResolver fontResolver, CancellationToken cancellationToken)
+        public static BaseFont Create(PdfDictionary fontDict, FontResolver fontResolver, FontRepository fontRepository, CancellationToken cancellationToken)
         {
-            return Create(fontDict, fontResolver, Glyph0Options.None, cancellationToken);
+            return Create(fontDict, fontResolver, fontRepository, Glyph0Options.None, cancellationToken);
         }
 
-        private static BaseFont Create(PdfDictionary fontDict, FontResolver fontResolver, Glyph0Options glyph0Options, CancellationToken cancellationToken)
+        private static BaseFont Create(PdfDictionary fontDict, FontResolver fontResolver, FontRepository fontRepository, Glyph0Options glyph0Options, CancellationToken cancellationToken)
         {
             var font = CreateCore(fontDict, glyph0Options, cancellationToken);
+
+            try
+            {
+                font.PopulateOpenTypeFont(fontRepository, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                font.openTypeFont = null;
+                font.openTypeFontException = ex;
+            }
+
             font.OnInit(cancellationToken);
             font.SubstituteFont = fontResolver.ResolveFont(font, cancellationToken);
             font.OnPostInit(cancellationToken);
             return font;
         }
 
-        public static Task<BaseFont> CreateAsync(PdfDictionary fontDict, FontResolver fontResolver, CancellationToken cancellationToken)
+#if HAVE_ASYNC
+        public static async Task<BaseFont> CreateAsync(PdfDictionary fontDict, FontResolver fontResolver, FontRepository fontRepository, CancellationToken cancellationToken)
         {
             var font = CreateCore(fontDict, Glyph0Options.None, cancellationToken);
+
+            try
+            {
+                await font.PopulateOpenTypeFontAsync(fontRepository, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                font.openTypeFont = null;
+                font.openTypeFontException = ex;
+            }
+
             font.OnInit(cancellationToken);
+            font.SubstituteFont = await fontResolver.ResolveFontAsync(font, cancellationToken).ConfigureAwait(false);
+            font.OnPostInit(cancellationToken);
 
-            return fontResolver
-                .ResolveFontAsync(font, cancellationToken)
-                .ContinueWith(t =>
-                {
-                    font.SubstituteFont = t.Result;
-                    font.OnPostInit(cancellationToken);
-                    return font;
-                }, TaskContinuationOptions.OnlyOnRanToCompletion | TaskContinuationOptions.ExecuteSynchronously);
+            return font;
         }
-
+#else
+        public static Task<BaseFont> CreateAsync(PdfDictionary fontDict, FontResolver fontResolver, FontRepository fontRepository, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+#endif
         public override byte[] ToOpenType()
         {
             if (openTypeFont == null)
             {
                 throw openTypeFontException ?? new NotSupportedException("This font cannot be converted to OpenType format.");
+            }
+
+            if (isExternalFont)
+            {
+                var os2 = openTypeFont.Tables.Get<OS2Table>();
+                if (os2 != null)
+                {
+                    if (os2.BitmapEmbeddingOnly ||
+                        os2.UsagePermissions.HasFlag(UsagePermission.Restricted))
+                    {
+                        throw new FontException("The license of the font '" + name + "' does not allow embedding.");
+                    }
+                }
             }
 
             chars.TryPopulate(GetChars, toUnicode, pdfFontEncoding ?? openTypeFontEncoding, widthMap, optimizeForEmbeddedFont: true);

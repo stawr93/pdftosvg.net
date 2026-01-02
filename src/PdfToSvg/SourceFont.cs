@@ -21,6 +21,28 @@ namespace PdfToSvg
         public abstract string? Name { get; }
 
         /// <summary>
+        /// Gets the PostScript name of the font, if available.
+        /// </summary>
+        /// <remarks>
+        /// This name is provided by NAME ID 6 from the
+        /// <see href="https://learn.microsoft.com/en-us/typography/opentype/spec/name">OpenType 'name' table</see>.
+        /// If there are several matching name records, the Windows platform, followed by English language, is
+        /// preferred.
+        /// </remarks>
+        public virtual string? PostScriptName => null;
+
+        /// <summary>
+        /// Gets the font full name, if available.
+        /// </summary>
+        /// <remarks>
+        /// This name is provided by NAME ID 4 from the
+        /// <see href="https://learn.microsoft.com/en-us/typography/opentype/spec/name">OpenType 'name' table</see>.
+        /// If there are several matching name records, the Windows platform, followed by English language, is
+        /// preferred.
+        /// </remarks>
+        public virtual string? FullFontName => null;
+
+        /// <summary>
         /// Indicates whether this font is one of the 14 standard PDF fonts. If so, the font returned by
         /// <see cref="ToOpenType"/> and <see cref="ToWoff"/> is not extracted from the PDF, but rather provided by
         /// PdfToSvg.NET.
@@ -62,6 +84,12 @@ namespace PdfToSvg
         /// </code>
         /// </example>
         public virtual bool IsStandardFont => false;
+
+        /// <summary>
+        /// Specifies whether this font is a non-embedded external font that was found in the specified
+        /// <see cref="SvgConversionOptions.FontRepository"/>.
+        /// </summary>
+        public virtual bool IsExternalFont => false;
 
         /// <summary>
         /// Specifies whether this font can be inlined. When a font is inlined, its glyphs will be embedded as paths
