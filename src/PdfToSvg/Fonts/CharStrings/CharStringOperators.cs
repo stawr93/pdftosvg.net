@@ -7,58 +7,93 @@ using PdfToSvg.Drawing;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Reflection;
 using Parser = PdfToSvg.Fonts.CharStrings.CharStringParser;
 
 namespace PdfToSvg.Fonts.CharStrings
 {
     internal static class CharStringOperators
     {
-        [AttributeUsage(AttributeTargets.Method)]
-        private class OperatorAttribute : Attribute
+        private static readonly Dictionary<CharStringOpCode, CharStringOperator> operators = new()
         {
-            public OperatorAttribute(CharStringOpCode code, bool clearStack = false)
-            {
-                Code = code;
-                ClearStack = clearStack;
-            }
+            // Path construction operators
+            { CharStringOpCode.RMoveTo, new CharStringOperator(Op_RMoveTo, CharStringOperatorOptions.ClearStack) },
+            { CharStringOpCode.HMoveTo, new CharStringOperator(Op_HMoveTo, CharStringOperatorOptions.ClearStack) },
+            { CharStringOpCode.VMoveTo, new CharStringOperator(Op_VMoveTo, CharStringOperatorOptions.ClearStack) },
 
-            /// <summary>
-            /// Operator code.
-            /// </summary>
-            public CharStringOpCode Code { get; }
+            { CharStringOpCode.RLineTo, new CharStringOperator(Op_RLineTo, CharStringOperatorOptions.ClearStack) },
+            { CharStringOpCode.HLineTo, new CharStringOperator(Op_HLineTo, CharStringOperatorOptions.ClearStack) },
+            { CharStringOpCode.VLineTo, new CharStringOperator(Op_VLineTo, CharStringOperatorOptions.ClearStack) },
 
-            /// <summary>
-            /// Specifies whether the operator is clearing the stack. Used for detecting the leading advance width in char
-            /// strings.
-            /// </summary>
-            public bool ClearStack { get; }
-        }
+            { CharStringOpCode.RRCurveTo, new CharStringOperator(Op_RRCurveTo, CharStringOperatorOptions.ClearStack) },
+            { CharStringOpCode.HHCurveTo, new CharStringOperator(Op_HHCurveTo, CharStringOperatorOptions.ClearStack) },
+            { CharStringOpCode.HVCurveTo, new CharStringOperator(Op_HVCurveTo, CharStringOperatorOptions.ClearStack) },
+            { CharStringOpCode.RCurveLine, new CharStringOperator(Op_RCurveLine, CharStringOperatorOptions.ClearStack) },
+            { CharStringOpCode.RLineCurve, new CharStringOperator(Op_RLineCurve, CharStringOperatorOptions.ClearStack) },
+            { CharStringOpCode.VHCurveTo, new CharStringOperator(Op_VHCurveTo, CharStringOperatorOptions.ClearStack) },
+            { CharStringOpCode.VVCurveTo, new CharStringOperator(Op_VVCurveTo, CharStringOperatorOptions.ClearStack) },
 
-        private static readonly Dictionary<CharStringOpCode, CharStringOperator> operators;
+            { CharStringOpCode.Flex, new CharStringOperator(Op_Flex, CharStringOperatorOptions.ClearStack) },
+            { CharStringOpCode.HFlex, new CharStringOperator(Op_HFlex, CharStringOperatorOptions.ClearStack) },
+            { CharStringOpCode.HFlex1, new CharStringOperator(Op_HFlex1, CharStringOperatorOptions.ClearStack) },
+            { CharStringOpCode.Flex1, new CharStringOperator(Op_Flex1, CharStringOperatorOptions.ClearStack) },
 
-        static CharStringOperators()
-        {
-            operators = typeof(CharStringOperators)
-                .GetTypeInfo()
-                .GetMethods(BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.InvokeMethod)
-                .Select(method => new
-                {
-                    Method = method,
-                    Parameters = method.GetParameters(),
-                    Operator = method.GetCustomAttributes(typeof(OperatorAttribute), false).Cast<OperatorAttribute>().FirstOrDefault()!,
-                })
-                .Where(method =>
-                    method.Operator != null &&
-                    method.Parameters.Length == 1 &&
-                    method.Parameters[0].ParameterType == typeof(Parser))
-                .ToDictionary(
-                    method => method.Operator.Code,
-                    method => new CharStringOperator(
-                        method.Method.CreateDelegate<Action<Parser>>(),
-                        method.Operator.ClearStack));
-        }
+            // Operator for finishing a path
+            { CharStringOpCode.EndChar, new CharStringOperator(Op_EndChar, CharStringOperatorOptions.ClearStack) },
+
+            // Hint operators
+            { CharStringOpCode.HStem, new CharStringOperator(Op_HStem, CharStringOperatorOptions.ClearStack) },
+            { CharStringOpCode.VStem, new CharStringOperator(Op_VStem, CharStringOperatorOptions.ClearStack) },
+            { CharStringOpCode.HStemHm, new CharStringOperator(Op_HStemHm, CharStringOperatorOptions.ClearStack) },
+            { CharStringOpCode.VStemHm, new CharStringOperator(Op_VStemHm, CharStringOperatorOptions.ClearStack) },
+
+            { CharStringOpCode.HintMask, new CharStringOperator(Op_HintMask, CharStringOperatorOptions.ClearStack) },
+            { CharStringOpCode.CntrMask, new CharStringOperator(Op_CntrMask, CharStringOperatorOptions.ClearStack) },
+
+            // Arithmetic operators
+            { CharStringOpCode.Abs, new CharStringOperator(Op_Abs) },
+            { CharStringOpCode.Add, new CharStringOperator(Op_Add) },
+            { CharStringOpCode.Sub, new CharStringOperator(Op_Sub) },
+            { CharStringOpCode.Div, new CharStringOperator(Op_Div) },
+            { CharStringOpCode.Neg, new CharStringOperator(Op_Neg) },
+            { CharStringOpCode.Random, new CharStringOperator(Op_Random) },
+            { CharStringOpCode.Mul, new CharStringOperator(Op_Mul) },
+            { CharStringOpCode.Sqrt, new CharStringOperator(Op_Sqrt) },
+            { CharStringOpCode.Drop, new CharStringOperator(Op_Drop) },
+            { CharStringOpCode.Exch, new CharStringOperator(Op_Exch) },
+            { CharStringOpCode.Index, new CharStringOperator(Op_Index) },
+            { CharStringOpCode.Roll, new CharStringOperator(Op_Roll) },
+            { CharStringOpCode.Dup, new CharStringOperator(Op_Dup) },
+
+            // Storage operators
+            { CharStringOpCode.Put, new CharStringOperator(Op_Put) },
+            { CharStringOpCode.Get, new CharStringOperator(Op_Get) },
+
+            // Conditional operators
+            { CharStringOpCode.And, new CharStringOperator(Op_And) },
+            { CharStringOpCode.Or, new CharStringOperator(Op_Or) },
+            { CharStringOpCode.Not, new CharStringOperator(Op_Not) },
+            { CharStringOpCode.Eq, new CharStringOperator(Op_Eq) },
+            { CharStringOpCode.IfElse, new CharStringOperator(Op_IfElse) },
+
+            // Subroutine operators
+            { CharStringOpCode.CallSubr, new CharStringOperator(Op_CallSubr) },
+            { CharStringOpCode.CallGSubr, new CharStringOperator(Op_CallGSubr) },
+            { CharStringOpCode.Return, new CharStringOperator(Op_Return) },
+
+            // Deprecated operators
+            { CharStringOpCode.DotSection, new CharStringOperator(Op_DotSection) },
+
+            // Type 1 operators
+            { CharStringOpCode.VStem3, new CharStringOperator(Op_VStem3, CharStringOperatorOptions.ClearStack) },
+            { CharStringOpCode.HStem3, new CharStringOperator(Op_HStem3, CharStringOperatorOptions.ClearStack) },
+            { CharStringOpCode.Pop, new CharStringOperator(Op_Pop) },
+            { CharStringOpCode.Hsbw, new CharStringOperator(Op_Hsbw, CharStringOperatorOptions.ClearStack) },
+            { CharStringOpCode.Seac, new CharStringOperator(Op_Seac, CharStringOperatorOptions.ClearStack) },
+            { CharStringOpCode.Sbw, new CharStringOperator(Op_Sbw, CharStringOperatorOptions.ClearStack) },
+            { CharStringOpCode.CallOtherSubr, new CharStringOperator(Op_CallOtherSubr, CharStringOperatorOptions.ClearStack) },
+            { CharStringOpCode.ClosePath, new CharStringOperator(Op_ClosePath) },
+            { CharStringOpCode.SetCurrentPoint, new CharStringOperator(Op_SetCurrentPoint) },
+        };
 
         public static bool TryGetOperator(CharStringOpCode code, [MaybeNullWhen(false)] out CharStringOperator result)
         {
@@ -67,8 +102,7 @@ namespace PdfToSvg.Fonts.CharStrings
 
         #region Path construction operators
 
-        [Operator(CharStringOpCode.RMoveTo, clearStack: true)]
-        private static void RMoveTo(Parser parser)
+        private static void Op_RMoveTo(Parser parser)
         {
             if (parser.FlexPoints == null)
             {
@@ -83,8 +117,7 @@ namespace PdfToSvg.Fonts.CharStrings
             }
         }
 
-        [Operator(CharStringOpCode.HMoveTo, clearStack: true)]
-        private static void HMoveTo(Parser parser)
+        private static void Op_HMoveTo(Parser parser)
         {
             if (parser.FlexPoints == null)
             {
@@ -99,8 +132,7 @@ namespace PdfToSvg.Fonts.CharStrings
             }
         }
 
-        [Operator(CharStringOpCode.VMoveTo, clearStack: true)]
-        private static void VMoveTo(Parser parser)
+        private static void Op_VMoveTo(Parser parser)
         {
             if (parser.FlexPoints == null)
             {
@@ -115,8 +147,7 @@ namespace PdfToSvg.Fonts.CharStrings
             }
         }
 
-        [Operator(CharStringOpCode.RLineTo, clearStack: true)]
-        private static void RLineTo(Parser parser)
+        private static void Op_RLineTo(Parser parser)
         {
             var startAt = parser.Stack.Count % 2;
 
@@ -154,20 +185,17 @@ namespace PdfToSvg.Fonts.CharStrings
             parser.Stack.Clear();
         }
 
-        [Operator(CharStringOpCode.HLineTo, clearStack: true)]
-        private static void HLineTo(Parser parser)
+        private static void Op_HLineTo(Parser parser)
         {
             AlternatingLineTo(parser, startHorizontally: true);
         }
 
-        [Operator(CharStringOpCode.VLineTo, clearStack: true)]
-        private static void VLineTo(Parser parser)
+        private static void Op_VLineTo(Parser parser)
         {
             AlternatingLineTo(parser, startHorizontally: false);
         }
 
-        [Operator(CharStringOpCode.RRCurveTo, clearStack: true)]
-        private static void RRCurveTo(Parser parser)
+        private static void Op_RRCurveTo(Parser parser)
         {
             var startAt = parser.Stack.Count % 6;
 
@@ -187,8 +215,7 @@ namespace PdfToSvg.Fonts.CharStrings
             parser.Stack.RemoveFrom(startAt);
         }
 
-        [Operator(CharStringOpCode.HHCurveTo, clearStack: true)]
-        private static void HHCurveTo(Parser parser)
+        private static void Op_HHCurveTo(Parser parser)
         {
             var startAt = parser.Stack.Count % 4;
             int removeFrom;
@@ -287,14 +314,12 @@ namespace PdfToSvg.Fonts.CharStrings
             parser.Stack.RemoveFrom(startAt);
         }
 
-        [Operator(CharStringOpCode.HVCurveTo, clearStack: true)]
-        private static void HVCurveTo(Parser parser)
+        private static void Op_HVCurveTo(Parser parser)
         {
             AlternatingHVCurveTo(parser, startHorizontal: true);
         }
 
-        [Operator(CharStringOpCode.RCurveLine, clearStack: true)]
-        private static void RCurveLine(Parser parser)
+        private static void Op_RCurveLine(Parser parser)
         {
             if (parser.Stack.Count < 8)
             {
@@ -323,8 +348,7 @@ namespace PdfToSvg.Fonts.CharStrings
             parser.Stack.RemoveFrom(startAt);
         }
 
-        [Operator(CharStringOpCode.RLineCurve, clearStack: true)]
-        private static void RLineCurve(Parser parser)
+        private static void Op_RLineCurve(Parser parser)
         {
             if (parser.Stack.Count < 8)
             {
@@ -352,14 +376,12 @@ namespace PdfToSvg.Fonts.CharStrings
             parser.Stack.RemoveFrom(startAt);
         }
 
-        [Operator(CharStringOpCode.VHCurveTo, clearStack: true)]
-        private static void VHCurveTo(Parser parser)
+        private static void Op_VHCurveTo(Parser parser)
         {
             AlternatingHVCurveTo(parser, startHorizontal: false);
         }
 
-        [Operator(CharStringOpCode.VVCurveTo, clearStack: true)]
-        private static void VVCurveTo(Parser parser)
+        private static void Op_VVCurveTo(Parser parser)
         {
             if (parser.Stack.Count < 4)
             {
@@ -393,8 +415,7 @@ namespace PdfToSvg.Fonts.CharStrings
             parser.Stack.RemoveFrom(removeFrom);
         }
 
-        [Operator(CharStringOpCode.Flex, clearStack: true)]
-        private static void Flex(Parser parser)
+        private static void Op_Flex(Parser parser)
         {
             var startAt = parser.Stack.Count - 13;
             if (startAt < 0)
@@ -424,8 +445,7 @@ namespace PdfToSvg.Fonts.CharStrings
             parser.Stack.RemoveFrom(startAt);
         }
 
-        [Operator(CharStringOpCode.HFlex, clearStack: true)]
-        private static void HFlex(Parser parser)
+        private static void Op_HFlex(Parser parser)
         {
             var startAt = parser.Stack.Count - 7;
             if (startAt < 0)
@@ -453,8 +473,7 @@ namespace PdfToSvg.Fonts.CharStrings
             parser.Stack.RemoveFrom(startAt);
         }
 
-        [Operator(CharStringOpCode.HFlex1, clearStack: true)]
-        private static void HFlex1(Parser parser)
+        private static void Op_HFlex1(Parser parser)
         {
             var startAt = parser.Stack.Count - 9;
             if (startAt < 0)
@@ -482,8 +501,7 @@ namespace PdfToSvg.Fonts.CharStrings
             parser.Stack.RemoveFrom(startAt);
         }
 
-        [Operator(CharStringOpCode.Flex1, clearStack: true)]
-        private static void Flex1(Parser parser)
+        private static void Op_Flex1(Parser parser)
         {
             var startAt = parser.Stack.Count - 11;
             if (startAt < 0)
@@ -530,8 +548,7 @@ namespace PdfToSvg.Fonts.CharStrings
 
         #region Operator for finishing a path
 
-        [Operator(CharStringOpCode.EndChar, clearStack: true)]
-        private static void EndChar(Parser parser)
+        private static void Op_EndChar(Parser parser)
         {
             if (parser.Stack.Count >= 4)
             {
@@ -596,26 +613,22 @@ namespace PdfToSvg.Fonts.CharStrings
             parser.Stack.RemoveFrom(startAt);
         }
 
-        [Operator(CharStringOpCode.HStem, clearStack: true)]
-        private static void HStem(Parser parser)
+        private static void Op_HStem(Parser parser)
         {
             Hint(parser, isHorizontal: true, CharStringOpCode.HStem);
         }
 
-        [Operator(CharStringOpCode.VStem, clearStack: true)]
-        private static void VStem(Parser parser)
+        private static void Op_VStem(Parser parser)
         {
             Hint(parser, isHorizontal: false, CharStringOpCode.VStem);
         }
 
-        [Operator(CharStringOpCode.HStemHm, clearStack: true)]
-        private static void HStemHm(Parser parser)
+        private static void Op_HStemHm(Parser parser)
         {
             Hint(parser, isHorizontal: true, CharStringOpCode.HStemHm);
         }
 
-        [Operator(CharStringOpCode.VStemHm, clearStack: true)]
-        private static void VStemHm(Parser parser)
+        private static void Op_VStemHm(Parser parser)
         {
             Hint(parser, isHorizontal: false, CharStringOpCode.VStemHm);
         }
@@ -642,14 +655,12 @@ namespace PdfToSvg.Fonts.CharStrings
             }
         }
 
-        [Operator(CharStringOpCode.HintMask, clearStack: true)]
-        private static void HintMask(Parser parser)
+        private static void Op_HintMask(Parser parser)
         {
             Mask(parser, CharStringOpCode.HintMask);
         }
 
-        [Operator(CharStringOpCode.CntrMask, clearStack: true)]
-        private static void CntrMask(Parser parser)
+        private static void Op_CntrMask(Parser parser)
         {
             Mask(parser, CharStringOpCode.CntrMask);
         }
@@ -658,71 +669,61 @@ namespace PdfToSvg.Fonts.CharStrings
 
         #region Arithmetic operators
 
-        [Operator(CharStringOpCode.Abs)]
-        private static void Abs(Parser parser)
+        private static void Op_Abs(Parser parser)
         {
             parser.Stack.Pop(out double num1);
             parser.Stack.Push(Math.Abs(num1));
         }
 
-        [Operator(CharStringOpCode.Add)]
-        private static void Add(Parser parser)
+        private static void Op_Add(Parser parser)
         {
             parser.Stack.Pop(out double num1, out double num2);
             parser.Stack.Push(num1 + num2);
         }
 
-        [Operator(CharStringOpCode.Sub)]
-        private static void Sub(Parser parser)
+        private static void Op_Sub(Parser parser)
         {
             parser.Stack.Pop(out double num1, out double num2);
             parser.Stack.Push(num1 - num2);
         }
 
-        [Operator(CharStringOpCode.Div)]
-        private static void Div(Parser parser)
+        private static void Op_Div(Parser parser)
         {
             parser.Stack.Pop(out double num1, out double num2);
             parser.Stack.Push(num1 / num2);
         }
 
-        [Operator(CharStringOpCode.Neg)]
-        private static void Neg(Parser parser)
+        private static void Op_Neg(Parser parser)
         {
             parser.Stack.Pop(out double num1);
             parser.Stack.Push(-num1);
         }
 
-        [Operator(CharStringOpCode.Random)]
-        private static void Random(Parser parser)
+        private static void Op_Random(Parser parser)
         {
             // PdfToSvg.NET does not support the random operator. It will always generate 0.42.
             parser.Stack.Push(0.42d);
         }
 
-        [Operator(CharStringOpCode.Mul)]
-        private static void Mul(Parser parser)
+        private static void Op_Mul(Parser parser)
         {
             parser.Stack.Pop(out double num1, out double num2);
             parser.Stack.Push(num1 * num2);
         }
 
-        [Operator(CharStringOpCode.Sqrt)]
-        private static void Sqrt(Parser parser)
+        private static void Op_Sqrt(Parser parser)
         {
             parser.Stack.Pop(out double num1);
             parser.Stack.Push(Math.Sqrt(num1));
         }
 
-        [Operator(CharStringOpCode.Drop)]
-        private static void Drop(Parser parser)
+        private static void Op_Drop(Parser parser)
         {
             parser.Stack.Pop(out int n);
             parser.Stack.RemoveFrom(MathUtils.Clamp(parser.Stack.Count - n, 0, parser.Stack.Count));
         }
 
-        [Operator(CharStringOpCode.Exch)]
-        private static void Exch(Parser parser)
+        private static void Op_Exch(Parser parser)
         {
             if (parser.Stack.Count < 2)
             {
@@ -737,8 +738,7 @@ namespace PdfToSvg.Fonts.CharStrings
             parser.Stack[index2] = tmp;
         }
 
-        [Operator(CharStringOpCode.Index)]
-        private static void Index(Parser parser)
+        private static void Op_Index(Parser parser)
         {
             parser.Stack.Pop(out int n);
 
@@ -756,15 +756,13 @@ namespace PdfToSvg.Fonts.CharStrings
             parser.Stack.Push(parser.Stack[index]);
         }
 
-        [Operator(CharStringOpCode.Roll)]
-        private static void Roll(Parser parser)
+        private static void Op_Roll(Parser parser)
         {
             parser.Stack.Pop(out int n, out int j);
             parser.Stack.Roll(n, j);
         }
 
-        [Operator(CharStringOpCode.Dup)]
-        private static void Dup(Parser parser)
+        private static void Op_Dup(Parser parser)
         {
             parser.Stack.Push(parser.Stack.Peek());
         }
@@ -773,8 +771,7 @@ namespace PdfToSvg.Fonts.CharStrings
 
         #region Storage operators
 
-        [Operator(CharStringOpCode.Put)]
-        private static void Put(Parser parser)
+        private static void Op_Put(Parser parser)
         {
             parser.Stack.Pop(out int i);
             parser.Stack.Pop(out double val);
@@ -785,8 +782,7 @@ namespace PdfToSvg.Fonts.CharStrings
             }
         }
 
-        [Operator(CharStringOpCode.Get)]
-        private static void Get(Parser parser)
+        private static void Op_Get(Parser parser)
         {
             parser.Stack.Pop(out int i);
             parser.Stack.Push(i < parser.Storage.Length
@@ -798,36 +794,31 @@ namespace PdfToSvg.Fonts.CharStrings
 
         #region Conditional operators
 
-        [Operator(CharStringOpCode.And)]
-        private static void And(Parser parser)
+        private static void Op_And(Parser parser)
         {
             parser.Stack.Pop(out double num1, out double num2);
             parser.Stack.Push(num1 != 0 && num2 != 0 ? 1 : 0);
         }
 
-        [Operator(CharStringOpCode.Or)]
-        private static void Or(Parser parser)
+        private static void Op_Or(Parser parser)
         {
             parser.Stack.Pop(out double num1, out double num2);
             parser.Stack.Push(num1 != 0 || num2 != 0 ? 1 : 0);
         }
 
-        [Operator(CharStringOpCode.Not)]
-        private static void Not(Parser parser)
+        private static void Op_Not(Parser parser)
         {
             parser.Stack.Pop(out double num1);
             parser.Stack.Push(num1 != 0 ? 0 : 1);
         }
 
-        [Operator(CharStringOpCode.Eq)]
-        private static void Eq(Parser parser)
+        private static void Op_Eq(Parser parser)
         {
             parser.Stack.Pop(out double num1, out double num2);
             parser.Stack.Push(num1 == num2 ? 1 : 0);
         }
 
-        [Operator(CharStringOpCode.IfElse)]
-        private static void IfElse(Parser parser)
+        private static void Op_IfElse(Parser parser)
         {
             parser.Stack.Pop(out double v1, out double v2);
             parser.Stack.Pop(out double s1, out double s2);
@@ -838,24 +829,21 @@ namespace PdfToSvg.Fonts.CharStrings
 
         #region Subroutine operators
 
-        [Operator(CharStringOpCode.CallSubr)]
-        private static void CallSubr(Parser parser)
+        private static void Op_CallSubr(Parser parser)
         {
             parser.Stack.Pop(out int number);
 
             parser.CallSubr(number, global: false);
         }
 
-        [Operator(CharStringOpCode.CallGSubr)]
-        private static void CallGSubr(Parser parser)
+        private static void Op_CallGSubr(Parser parser)
         {
             parser.Stack.Pop(out int number);
 
             parser.CallSubr(number, global: true);
         }
 
-        [Operator(CharStringOpCode.Return)]
-        private static void Return(Parser parser)
+        private static void Op_Return(Parser parser)
         {
             parser.Return();
         }
@@ -864,8 +852,7 @@ namespace PdfToSvg.Fonts.CharStrings
 
         #region Deprecated operators
 
-        [Operator(CharStringOpCode.DotSection)]
-        private static void DotSection(Parser parser)
+        private static void Op_DotSection(Parser parser)
         {
             // Treat as a noop according to spec
         }
@@ -874,8 +861,7 @@ namespace PdfToSvg.Fonts.CharStrings
 
         #region Type 1 operators
 
-        [Operator(CharStringOpCode.VStem3, clearStack: true)]
-        private static void VStem3(Parser parser)
+        private static void Op_VStem3(Parser parser)
         {
             var startAt = parser.Stack.Count - 6;
             if (startAt < 0)
@@ -890,12 +876,11 @@ namespace PdfToSvg.Fonts.CharStrings
             parser.Stack[startAt + 2] =
                 parser.Stack[startAt + 2] - parser.Stack[startAt + 0] - parser.Stack[startAt + 1];
 
-            VStem(parser);
+            Op_VStem(parser);
         }
 
 
-        [Operator(CharStringOpCode.HStem3, clearStack: true)]
-        private static void HStem3(Parser parser)
+        private static void Op_HStem3(Parser parser)
         {
             var startAt = parser.Stack.Count - 6;
             if (startAt < 0)
@@ -910,11 +895,10 @@ namespace PdfToSvg.Fonts.CharStrings
             parser.Stack[startAt + 2] =
                 parser.Stack[startAt + 2] - parser.Stack[startAt + 0] - parser.Stack[startAt + 1];
 
-            HStem(parser);
+            Op_HStem(parser);
         }
 
-        [Operator(CharStringOpCode.Pop, clearStack: false)]
-        private static void Pop(Parser parser)
+        private static void Op_Pop(Parser parser)
         {
             if (parser.PostScriptStack.Count > 0)
             {
@@ -922,8 +906,7 @@ namespace PdfToSvg.Fonts.CharStrings
             }
         }
 
-        [Operator(CharStringOpCode.Hsbw, clearStack: true)]
-        private static void Hsbw(Parser parser)
+        private static void Op_Hsbw(Parser parser)
         {
             parser.Stack.Pop(out double sbx, out double wx);
 
@@ -937,8 +920,7 @@ namespace PdfToSvg.Fonts.CharStrings
             }
         }
 
-        [Operator(CharStringOpCode.Seac, clearStack: true)]
-        private static void Seac(Parser parser)
+        private static void Op_Seac(Parser parser)
         {
             parser.Stack.Pop(out int bchar, out int achar);
             parser.Stack.Pop(out double adx, out double ady);
@@ -947,8 +929,7 @@ namespace PdfToSvg.Fonts.CharStrings
             parser.CharString.Seac = new CharStringSeacInfo(adx, ady, bchar, achar);
         }
 
-        [Operator(CharStringOpCode.Sbw, clearStack: true)]
-        private static void Sbw(Parser parser)
+        private static void Op_Sbw(Parser parser)
         {
             parser.Stack.Pop(out double wx, out double wy);
             parser.Stack.Pop(out double sbx, out double sby);
@@ -964,8 +945,7 @@ namespace PdfToSvg.Fonts.CharStrings
             }
         }
 
-        [Operator(CharStringOpCode.CallOtherSubr, clearStack: true)]
-        private static void CallOtherSubr(Parser parser)
+        private static void Op_CallOtherSubr(Parser parser)
         {
             // OtherSubrs are PostScript subroutines included in Type 1 fonts. The routines are however highly
             // standardized, so they are hardcoded in C# below to prevent having to implement the entire PostScript
@@ -1029,7 +1009,7 @@ namespace PdfToSvg.Fonts.CharStrings
 
                         parser.Stack.Push(flex);
 
-                        Flex(parser);
+                        Op_Flex(parser);
 
                         parser.PostScriptStack.Push(parser.Path.LastY);
                         parser.PostScriptStack.Push(parser.Path.LastX);
@@ -1053,14 +1033,12 @@ namespace PdfToSvg.Fonts.CharStrings
         }
 
 
-        [Operator(CharStringOpCode.ClosePath, clearStack: false)]
-        private static void ClosePath(Parser parser)
+        private static void Op_ClosePath(Parser parser)
         {
             // Noop in type 2
         }
 
-        [Operator(CharStringOpCode.SetCurrentPoint, clearStack: false)]
-        private static void SetCurrentPoint(Parser parser)
+        private static void Op_SetCurrentPoint(Parser parser)
         {
             parser.Stack.Pop(out double x, out double y);
 

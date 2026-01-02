@@ -6,7 +6,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Reflection;
 using Parser = PdfToSvg.Fonts.CharStrings.CharStringParser;
 
 namespace PdfToSvg.Fonts.CharStrings
@@ -18,10 +17,11 @@ namespace PdfToSvg.Fonts.CharStrings
     {
         private readonly Action<Parser> implementation;
 
-        public CharStringOperator(Action<Parser> implementation, bool clearStack)
+        public CharStringOperator(Action<Parser> implementation,
+            CharStringOperatorOptions options = CharStringOperatorOptions.None)
         {
             this.implementation = implementation;
-            ClearStack = clearStack;
+            ClearStack = options == CharStringOperatorOptions.ClearStack;
         }
 
         /// <summary>
@@ -35,7 +35,5 @@ namespace PdfToSvg.Fonts.CharStrings
         /// </summary>
         [DebuggerStepThrough]
         public void Invoke(Parser parser) => implementation.Invoke(parser);
-
-        public override string ToString() => implementation.GetMethodInfo().Name;
     }
 }
