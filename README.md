@@ -25,7 +25,7 @@ Install the [PdfToSvg.NET NuGet package](https://www.nuget.org/packages/PdfToSvg
 PM> Install-Package PdfToSvg.NET
 ```
 
-Open a PDF document by calling [`PdfDocument.Open`](https://pdftosvg.net/api/M_PdfToSvg_PdfDocument_Open_1). Call [`SaveAsSvg()`](https://pdftosvg.net/api/M_PdfToSvg_PdfPage_SaveAsSvg_1) on each page to convert it to an SVG file.
+Open a PDF document by calling [`PdfDocument.Open()`](https://pdftosvg.net/api/M_PdfToSvg_PdfDocument_Open_1). Call [`SaveAsSvg()`](https://pdftosvg.net/api/M_PdfToSvg_PdfPage_SaveAsSvg_1) on each page to convert it to an SVG file.
 
 ```csharp
 using (var doc = PdfDocument.Open("input.pdf"))
