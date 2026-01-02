@@ -10,7 +10,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace PdfToSvg.Threading
+namespace PdfToSvg.Cli
 {
     internal static class ParallelUtils
     {

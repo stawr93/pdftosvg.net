@@ -8,7 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace PdfToSvg.Common
+namespace PdfToSvg.Cli
 {
     internal static class PageRangeExtensions
     {

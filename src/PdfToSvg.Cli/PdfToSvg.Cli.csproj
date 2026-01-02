@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <Compile Include="..\PdfToSvg\**\*.cs" Visible="false" />
+    <Compile Remove="..\PdfToSvg\bin\Properties\AssemblyInfo.cs" Visible="false" />
     <Compile Remove="..\PdfToSvg\bin\**\*.cs" Visible="false" />
     <Compile Remove="..\PdfToSvg\obj\**\*.cs" Visible="false" />
   </ItemGroup>

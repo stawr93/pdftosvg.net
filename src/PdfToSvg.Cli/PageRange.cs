@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 
-namespace PdfToSvg.Common
+namespace PdfToSvg.Cli
 {
     internal class PageRange
     {

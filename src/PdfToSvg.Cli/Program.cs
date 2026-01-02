@@ -2,8 +2,6 @@
 // https://github.com/dmester/pdftosvg.net
 // Licensed under the MIT License.
 
-using PdfToSvg.Common;
-using PdfToSvg.Threading;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -98,7 +96,7 @@ namespace PdfToSvg.Cli
                 return 2;
             }
 
-            var interactive = !commandLine.NonInteractive && Environment.UserInteractive && !Console.IsInputRedirected;
+            var interactive = !commandLine.NonInteractive && Environment.UserInteractive && !Console.IsInputRedirected && !Console.IsOutputRedirected && !Console.IsErrorRedirected;
 
             if (commandLine.ShowHelp ||
                 string.IsNullOrEmpty(commandLine.InputPath))
@@ -189,13 +187,13 @@ namespace PdfToSvg.Cli
 
                     ProgressReporter progress;
 
-                    if (commandLine.NonInteractive)
+                    if (interactive)
                     {
-                        progress = ProgressReporter.CreateNullReporter();
+                        progress = ProgressReporter.CreateCliProgressBar("Converting PDF...");
                     }
                     else
                     {
-                        progress = ProgressReporter.CreateCliProgressBar("Converting PDF...");
+                        progress = ProgressReporter.CreateNullReporter();
                     }
 
                     await ParallelUtils.ForEachAsync(pageNumbers, async (pageNumber, _) =>

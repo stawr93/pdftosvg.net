@@ -11,7 +11,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace PdfToSvg.Tests.Common
+namespace PdfToSvg.Cli.Tests.Common
 {
     public class PageRangeTests
     {
