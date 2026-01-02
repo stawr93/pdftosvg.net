@@ -268,11 +268,17 @@ namespace PdfToSvg.Drawing
                         case MoveToCommand moveTo:
                             if (previous == null)
                             {
-                                result.Append("M" + FormatCoordinate(dest.Diff.X) + " " + FormatCoordinate(dest.Diff.Y));
+                                result.Append('M');
+                                result.Append(FormatCoordinate(dest.Diff.X));
+                                result.Append(' ');
+                                result.Append(FormatCoordinate(dest.Diff.Y));
                             }
                             else
                             {
-                                result.Append("m" + FormatCoordinate(dest.Diff.X) + " " + FormatCoordinate(dest.Diff.Y));
+                                result.Append('m');
+                                result.Append(FormatCoordinate(dest.Diff.X));
+                                result.Append(' ');
+                                result.Append(FormatCoordinate(dest.Diff.Y));
                             }
                             start = dest;
                             break;
@@ -280,19 +286,27 @@ namespace PdfToSvg.Drawing
                         case LineToCommand lineTo:
                             if (previous == null)
                             {
-                                result.Append("L" + FormatCoordinate(dest.Diff.X) + " " + FormatCoordinate(dest.Diff.Y));
+                                result.Append('L');
+                                result.Append(FormatCoordinate(dest.Diff.X));
+                                result.Append(' ');
+                                result.Append(FormatCoordinate(dest.Diff.Y));
                             }
                             else if (dest.Diff.X == 0)
                             {
-                                result.Append("v" + FormatCoordinate(dest.Diff.Y));
+                                result.Append('v');
+                                result.Append(FormatCoordinate(dest.Diff.Y));
                             }
                             else if (dest.Diff.Y == 0)
                             {
-                                result.Append("h" + FormatCoordinate(dest.Diff.X));
+                                result.Append('h');
+                                result.Append(FormatCoordinate(dest.Diff.X));
                             }
                             else
                             {
-                                result.Append("l" + FormatCoordinate(dest.Diff.X) + " " + FormatCoordinate(dest.Diff.Y));
+                                result.Append('l');
+                                result.Append(FormatCoordinate(dest.Diff.X));
+                                result.Append(' ');
+                                result.Append(FormatCoordinate(dest.Diff.Y));
                             }
                             break;
 
@@ -300,10 +314,18 @@ namespace PdfToSvg.Drawing
                             var diffP1 = new PathPoint(previous, curveTo.X1, curveTo.Y1);
                             var diffP2 = new PathPoint(previous, curveTo.X2, curveTo.Y2);
 
-                            result.Append((previous == null ? "C" : "c") +
-                                FormatCoordinate(diffP1.Diff.X) + " " + FormatCoordinate(diffP1.Diff.Y) + "," +
-                                FormatCoordinate(diffP2.Diff.X) + " " + FormatCoordinate(diffP2.Diff.Y) + "," +
-                                FormatCoordinate(dest.Diff.X) + " " + FormatCoordinate(dest.Diff.Y));
+                            result.Append(previous == null ? 'C' : 'c');
+                            result.Append(FormatCoordinate(diffP1.Diff.X));
+                            result.Append(' ');
+                            result.Append(FormatCoordinate(diffP1.Diff.Y));
+                            result.Append(',');
+                            result.Append(FormatCoordinate(diffP2.Diff.X));
+                            result.Append(' ');
+                            result.Append(FormatCoordinate(diffP2.Diff.Y));
+                            result.Append(',');
+                            result.Append(FormatCoordinate(dest.Diff.X));
+                            result.Append(' ');
+                            result.Append(FormatCoordinate(dest.Diff.Y));
                             break;
 
                         default:
@@ -317,7 +339,7 @@ namespace PdfToSvg.Drawing
                     switch (command)
                     {
                         case ClosePathCommand _:
-                            result.Append("z");
+                            result.Append('z');
                             previous = start;
                             break;
 

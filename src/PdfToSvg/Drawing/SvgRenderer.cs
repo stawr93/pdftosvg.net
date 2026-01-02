@@ -470,7 +470,7 @@ namespace PdfToSvg.Drawing
                     else
                     {
                         Format(output, item, depth);
-                        output.Append(" ");
+                        output.Append(' ');
                     }
                 }
             }
@@ -497,7 +497,7 @@ namespace PdfToSvg.Drawing
                 {
                     output.Append("[ ");
                     FormatArray(output, enumerable, depth);
-                    output.Append("]");
+                    output.Append(']');
                 }
                 else
                 {
