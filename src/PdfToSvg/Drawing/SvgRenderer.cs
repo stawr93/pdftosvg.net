@@ -9,6 +9,7 @@ using PdfToSvg.Drawing.Paths;
 using PdfToSvg.Drawing.Patterns;
 using PdfToSvg.Fonts;
 using PdfToSvg.Imaging;
+using PdfToSvg.IO;
 using PdfToSvg.Parsing;
 using System;
 using System.Collections;
@@ -530,14 +531,13 @@ namespace PdfToSvg.Drawing
         {
             var renderer = new SvgRenderer(pageDict, options, documentCache, optionalContentGroupManager, cancellationToken);
 
-            using (var contentStream = ContentStream.Combine(pageDict, cancellationToken))
+            var content = ContentStream.Combine(pageDict, cancellationToken);
+            
+            foreach (var op in ContentParser.Parse(content))
             {
-                foreach (var op in ContentParser.Parse(contentStream))
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    renderer.DebugLogOperation(op.Operator, op.Operands);
-                    dispatcher.Dispatch(renderer, op.Operator, op.Operands);
-                }
+                cancellationToken.ThrowIfCancellationRequested();
+                renderer.DebugLogOperation(op.Operator, op.Operands);
+                dispatcher.Dispatch(renderer, op.Operator, op.Operands);
             }
 
             renderer.AfterDispatch();
@@ -549,14 +549,13 @@ namespace PdfToSvg.Drawing
         {
             var renderer = new SvgRenderer(pageDict, options, documentCache, optionalContentGroupManager, cancellationToken);
 
-            using (var contentStream = await ContentStream.CombineAsync(pageDict, cancellationToken).ConfigureAwait(false))
+            var content = await ContentStream.CombineAsync(pageDict, cancellationToken).ConfigureAwait(false);
+            
+            foreach (var op in ContentParser.Parse(content))
             {
-                foreach (var op in ContentParser.Parse(contentStream))
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    renderer.DebugLogOperation(op.Operator, op.Operands);
-                    await dispatcher.DispatchAsync(renderer, op.Operator, op.Operands).ConfigureAwait(false);
-                }
+                cancellationToken.ThrowIfCancellationRequested();
+                renderer.DebugLogOperation(op.Operator, op.Operands);
+                await dispatcher.DispatchAsync(renderer, op.Operator, op.Operands).ConfigureAwait(false);
             }
 
             renderer.AfterDispatch();
@@ -1209,14 +1208,13 @@ namespace PdfToSvg.Drawing
                     preparations();
 
                     // Buffer content since we might need to access the input file while rendering the page
-                    using var bufferedFormContent = new MemoryStream();
+                    byte[] content;
                     using (var decodedFormContent = contentStream.OpenDecoded(cancellationToken))
                     {
-                        decodedFormContent.CopyTo(bufferedFormContent);
+                        content = decodedFormContent.ToArray();
                     }
-                    bufferedFormContent.Position = 0;
 
-                    foreach (var operation in ContentParser.Parse(bufferedFormContent))
+                    foreach (var operation in ContentParser.Parse(content))
                     {
                         DebugLogOperation(operation.Operator, operation.Operands);
                         dispatcher.Dispatch(this, operation.Operator, operation.Operands);
@@ -2867,13 +2865,10 @@ namespace PdfToSvg.Drawing
 
                 graphicsState.Transform = Matrix.Translate(paragraph.X, paragraph.Y, paragraph.Matrix);
 
-                using (var contentStream = new MemoryStream(paragraph.Type3Content))
+                foreach (var op in ContentParser.Parse(paragraph.Type3Content))
                 {
-                    foreach (var op in ContentParser.Parse(contentStream))
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-                        dispatcher.Dispatch(this, op.Operator, op.Operands);
-                    }
+                    cancellationToken.ThrowIfCancellationRequested();
+                    dispatcher.Dispatch(this, op.Operator, op.Operands);
                 }
             }
             finally

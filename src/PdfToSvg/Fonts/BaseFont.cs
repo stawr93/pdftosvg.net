@@ -166,7 +166,7 @@ namespace PdfToSvg.Fonts
                     try
                     {
                         using var fontFileStream = fontFile.Stream.OpenDecoded(cancellationToken);
-                        var fontFileData = fontFileStream.ToArray();
+                        var fontFileData = fontFileStream.ToArray(cancellationToken);
                         var info = Type1Parser.Parse(fontFileData, length1, length2);
 
                         openTypeFont = Type1Converter.ConvertToOpenType(info);
@@ -186,7 +186,7 @@ namespace PdfToSvg.Fonts
                     try
                     {
                         using var fontFileStream = fontFile2.OpenDecoded(cancellationToken);
-                        var fontFileData = fontFileStream.ToArray();
+                        var fontFileData = fontFileStream.ToArray(cancellationToken);
                         openTypeFont = OpenTypeFont.Parse(fontFileData);
                     }
                     catch (Exception ex)
@@ -205,7 +205,7 @@ namespace PdfToSvg.Fonts
                         try
                         {
                             using var fontFileStream = fontFile3.Stream.OpenDecoded(cancellationToken);
-                            var fontFileData = fontFileStream.ToArray();
+                            var fontFileData = fontFileStream.ToArray(cancellationToken);
                             openTypeFont = OpenTypeFont.Parse(fontFileData);
                         }
                         catch (Exception ex)
@@ -218,7 +218,7 @@ namespace PdfToSvg.Fonts
                         try
                         {
                             using var fontFileStream = fontFile3.Stream.OpenDecoded(cancellationToken);
-                            var fontFileData = fontFileStream.ToArray();
+                            var fontFileData = fontFileStream.ToArray(cancellationToken);
 
                             var compactFontSet = CompactFontParser.Parse(fontFileData, maxFontCount: 1);
 
@@ -300,7 +300,7 @@ namespace PdfToSvg.Fonts
                     try
                     {
                         using var fontFileStream = await fontFile.Stream.OpenDecodedAsync(cancellationToken).ConfigureAwait(false);
-                        var fontFileData = fontFileStream.ToArray();
+                        var fontFileData = await fontFileStream.ToArrayAsync(cancellationToken).ConfigureAwait(false);
                         var info = Type1Parser.Parse(fontFileData, length1, length2);
 
                         openTypeFont = Type1Converter.ConvertToOpenType(info);
@@ -320,7 +320,7 @@ namespace PdfToSvg.Fonts
                     try
                     {
                         using var fontFileStream = await fontFile2.OpenDecodedAsync(cancellationToken).ConfigureAwait(false);
-                        var fontFileData = fontFileStream.ToArray();
+                        var fontFileData = await fontFileStream.ToArrayAsync(cancellationToken).ConfigureAwait(false);
                         openTypeFont = OpenTypeFont.Parse(fontFileData);
                     }
                     catch (Exception ex)
@@ -339,7 +339,7 @@ namespace PdfToSvg.Fonts
                         try
                         {
                             using var fontFileStream = await fontFile3.Stream.OpenDecodedAsync(cancellationToken).ConfigureAwait(false);
-                            var fontFileData = fontFileStream.ToArray();
+                            var fontFileData = await fontFileStream.ToArrayAsync(cancellationToken).ConfigureAwait(false);
                             openTypeFont = OpenTypeFont.Parse(fontFileData);
                         }
                         catch (Exception ex)
@@ -352,7 +352,7 @@ namespace PdfToSvg.Fonts
                         try
                         {
                             using var fontFileStream = await fontFile3.Stream.OpenDecodedAsync(cancellationToken).ConfigureAwait(false);
-                            var fontFileData = fontFileStream.ToArray();
+                            var fontFileData = await fontFileStream.ToArrayAsync(cancellationToken).ConfigureAwait(false);
 
                             var compactFontSet = CompactFontParser.Parse(fontFileData, maxFontCount: 1);
 

@@ -80,10 +80,12 @@ namespace PdfToSvg.Fonts.Woff
                         zlibStream.Write(binaryOtf, table.OrigOffset, table.OrigLength);
                     }
 
-                    if (compressedStream.Length < table.OrigLength)
+                    if (compressedStream.Length < table.OrigLength &&
+                        compressedStream.TryGetBuffer(out var compressedBuffer) &&
+                        compressedBuffer.Offset == 0)
                     {
-                        table.CompressedContent = compressedStream.GetBufferOrArray();
-                        table.CompLength = (int)compressedStream.Length;
+                        table.CompressedContent = compressedBuffer.Array;
+                        table.CompLength = compressedBuffer.Count;
                     }
                     else
                     {

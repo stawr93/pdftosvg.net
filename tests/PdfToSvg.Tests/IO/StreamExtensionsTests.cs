@@ -104,50 +104,15 @@ namespace PdfToSvg.Tests.IO
         }
 
         [Test]
-        public void ToMemoryStream_MemoryStream()
-        {
-            var data = new byte[] { 1, 2, 3, 4, 5, 6 };
-            var stream = (Stream)new MemoryStream(data);
-            stream.Position = 3;
-            Assert.AreEqual(new byte[] { 4, 5, 6 }, stream.ToMemoryStream().ToArray());
-        }
-
-        [Test]
-        public void ToMemoryStream_NonSeekableStream()
-        {
-            var data = new byte[] { 1, 2, 3, 4, 5, 6 };
-            var stream = (Stream)new NoSeekMemoryStream(data);
-            stream.Skip(2);
-            Assert.AreEqual(new byte[] { 3, 4, 5, 6 }, stream.ToMemoryStream().ToArray());
-        }
-
-#if !NET40
-        [Test]
-        public async Task ToMemoryStreamAsync_MemoryStream()
-        {
-            var data = new byte[] { 1, 2, 3, 4, 5, 6 };
-            var stream = (Stream)new MemoryStream(data);
-            stream.Position = 3;
-            Assert.AreEqual(new byte[] { 4, 5, 6 }, (await stream.ToMemoryStreamAsync()).ToArray());
-        }
-
-        [Test]
-        public async Task ToMemoryStreamAsync_NonSeekableStream()
-        {
-            var data = new byte[] { 1, 2, 3, 4, 5, 6 };
-            var stream = (Stream)new NoSeekMemoryStream(data);
-            stream.Skip(2);
-            Assert.AreEqual(new byte[] { 3, 4, 5, 6 }, (await stream.ToMemoryStreamAsync()).ToArray());
-        }
-#endif
-
-        [Test]
         public void ToArray_MemoryStream()
         {
             var data = new byte[] { 1, 2, 3, 4, 5, 6 };
             var stream = (Stream)new MemoryStream(data);
             stream.Position = 3;
-            Assert.AreEqual(data, stream.ToArray());
+
+            var actual = stream.ToArray();
+
+            Assert.AreEqual(data, actual);
         }
 
         [Test]
@@ -156,7 +121,10 @@ namespace PdfToSvg.Tests.IO
             var data = new byte[] { 1, 2, 3, 4, 5, 6 };
             var stream = (Stream)new WrongLengthStream(data);
             stream.Position = 3;
-            Assert.AreEqual(data, stream.ToArray());
+
+            var actual = stream.ToArray();
+
+            Assert.AreEqual(data, actual);
         }
 
         [Test]
@@ -165,8 +133,115 @@ namespace PdfToSvg.Tests.IO
             var data = new byte[] { 1, 2, 3, 4, 5, 6 };
             var stream = (Stream)new NoSeekMemoryStream(data);
             stream.Skip(2);
-            Assert.AreEqual(new byte[] { 3, 4, 5, 6 }, stream.ToArray());
+
+            var actual = stream.ToArray();
+
+            Assert.AreEqual(new byte[] { 3, 4, 5, 6 }, actual);
         }
+
+        [Test]
+        public void ToArraySegment_MemoryStream()
+        {
+            var data = new byte[] { 1, 2, 3, 4, 5, 6 };
+            var stream = (Stream)new MemoryStream(data);
+            stream.Position = 3;
+
+            var actual = stream.ToArraySegment().ToArray();
+
+            Assert.AreEqual(data, actual);
+        }
+
+        [Test]
+        public void ToArraySegment_WrongLength()
+        {
+            var data = new byte[] { 1, 2, 3, 4, 5, 6 };
+            var stream = (Stream)new WrongLengthStream(data);
+            stream.Position = 3;
+
+            var actual = stream.ToArraySegment().ToArray();
+
+            Assert.AreEqual(data, actual);
+        }
+
+        [Test]
+        public void ToArraySegment_NonSeekableStream()
+        {
+            var data = new byte[] { 1, 2, 3, 4, 5, 6 };
+            var stream = (Stream)new NoSeekMemoryStream(data);
+            stream.Skip(2);
+
+            var actual = stream.ToArraySegment().ToArray();
+
+            Assert.AreEqual(new byte[] { 3, 4, 5, 6 }, actual);
+        }
+
+#if !NET40
+        [Test]
+        public async Task ToArrayAsync_MemoryStream()
+        {
+            var data = new byte[] { 1, 2, 3, 4, 5, 6 };
+            var stream = (Stream)new MemoryStream(data);
+            stream.Position = 3;
+
+            var actual = await stream.ToArrayAsync();
+            Assert.AreEqual(data, actual);
+        }
+
+        [Test]
+        public async Task ToArrayAsync_WrongLength()
+        {
+            var data = new byte[] { 1, 2, 3, 4, 5, 6 };
+            var stream = (Stream)new WrongLengthStream(data);
+            stream.Position = 3;
+
+            var actual = await stream.ToArrayAsync();
+            Assert.AreEqual(data, actual);
+        }
+
+        [Test]
+        public async Task ToArrayAsync_NonSeekableStream()
+        {
+            var data = new byte[] { 1, 2, 3, 4, 5, 6 };
+            var stream = (Stream)new NoSeekMemoryStream(data);
+            stream.Skip(2);
+
+            var actual = await stream.ToArrayAsync();
+            Assert.AreEqual(new byte[] { 3, 4, 5, 6 }, actual);
+        }
+
+        [Test]
+        public async Task ToArraySegmentAsync_MemoryStream()
+        {
+            var data = new byte[] { 1, 2, 3, 4, 5, 6 };
+            var stream = (Stream)new MemoryStream(data);
+            stream.Position = 3;
+
+            var actual = (await stream.ToArraySegmentAsync()).ToArray();
+            Assert.AreEqual(data, actual);
+        }
+
+        [Test]
+        public async Task ToArraySegmentAsync_WrongLength()
+        {
+            var data = new byte[] { 1, 2, 3, 4, 5, 6 };
+            var stream = (Stream)new WrongLengthStream(data);
+            stream.Position = 3;
+
+            var actual = (await stream.ToArraySegmentAsync()).ToArray();
+            Assert.AreEqual(data, actual);
+        }
+
+        [Test]
+        public async Task ToArraySegmentAsync_NonSeekableStream()
+        {
+            var data = new byte[] { 1, 2, 3, 4, 5, 6 };
+            var stream = (Stream)new NoSeekMemoryStream(data);
+            stream.Skip(2);
+
+            var actual = (await stream.ToArraySegmentAsync()).ToArray();
+            Assert.AreEqual(new byte[] { 3, 4, 5, 6 }, actual);
+        }
+#endif
 
         [Test]
         public void Skip()

@@ -193,8 +193,12 @@ namespace PdfToSvg
             document.WriteTo(writer);
             writer.Flush();
 
-            var buffer = memoryStream.GetBufferOrArray();
-            await stream.WriteAsync(buffer, 0, (int)memoryStream.Length, cancellationToken).ConfigureAwait(false);
+            if (!memoryStream.TryGetBuffer(out var buffer))
+            {
+                throw new Exception("MemoryStream unexpectedly did not allow access to its buffer");
+            }
+
+            await stream.WriteAsync(buffer.Array!, buffer.Offset, buffer.Count, cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>

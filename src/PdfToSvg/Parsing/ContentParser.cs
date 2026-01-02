@@ -35,9 +35,29 @@ namespace PdfToSvg.Parsing
         {
         }
 
+        public ContentParser(ArraySegment<byte> data) : base(new Lexer(data, keywords))
+        {
+        }
+
+        public ContentParser(byte[] data) : base(new Lexer(data, keywords))
+        {
+        }
+
         public static IEnumerable<ContentOperation> Parse(Stream stream)
         {
             var parser = new ContentParser(stream);
+            return parser.ReadContentStream();
+        }
+
+        public static IEnumerable<ContentOperation> Parse(ArraySegment<byte> data)
+        {
+            var parser = new ContentParser(data);
+            return parser.ReadContentStream();
+        }
+
+        public static IEnumerable<ContentOperation> Parse(byte[] data)
+        {
+            var parser = new ContentParser(data);
             return parser.ReadContentStream();
         }
 

@@ -39,14 +39,8 @@ namespace PdfToSvg.Parsing
             return contents;
         }
 
-        private static MemoryStream CreateReadOnlyStream(MemoryStream memoryStream)
-        {
-            var buffer = memoryStream.GetBufferOrArray();
-            return new MemoryStream(buffer, 0, (int)memoryStream.Length, false);
-        }
-
 #if HAVE_ASYNC
-        public static async Task<Stream> CombineAsync(PdfDictionary pageDict, CancellationToken cancellationToken)
+        public static async Task<ArraySegment<byte>> CombineAsync(PdfDictionary pageDict, CancellationToken cancellationToken)
         {
             var contents = GetContents(pageDict);
             var combinedBuffer = new MemoryStream();
@@ -61,11 +55,18 @@ namespace PdfToSvg.Parsing
                 }
             }
 
-            return CreateReadOnlyStream(combinedBuffer);
+            combinedBuffer.Position = 0;
+
+            if (!combinedBuffer.TryGetBuffer(out var buffer))
+            {
+                throw new Exception("MemoryStream unexpectedly did not allow access to its buffer");
+            }
+
+            return buffer;
         }
 #endif
 
-        public static Stream Combine(PdfDictionary pageDict, CancellationToken cancellationToken)
+        public static ArraySegment<byte> Combine(PdfDictionary pageDict, CancellationToken cancellationToken)
         {
             var contents = GetContents(pageDict);
             var combinedBuffer = new MemoryStream();
@@ -80,7 +81,14 @@ namespace PdfToSvg.Parsing
                 }
             }
 
-            return CreateReadOnlyStream(combinedBuffer);
+            combinedBuffer.Position = 0;
+
+            if (!combinedBuffer.TryGetBuffer(out var buffer))
+            {
+                throw new Exception("MemoryStream unexpectedly did not allow access to its buffer");
+            }
+
+            return buffer;
         }
     }
 }
