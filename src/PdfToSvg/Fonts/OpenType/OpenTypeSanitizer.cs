@@ -280,7 +280,6 @@ namespace PdfToSvg.Fonts.OpenType
                 .Select(name =>
                 {
                     var isWindows = name.CMap.PlatformID == OpenTypePlatformID.Windows;
-                    var encoding = isWindows ? Encoding.BigEndianUnicode : Encoding.ASCII;
                     var value = name.Value;
 
                     if (name.ID == OpenTypeNameID.PostScriptName)
@@ -294,7 +293,7 @@ namespace PdfToSvg.Fonts.OpenType
                         EncodingID = name.CMap.EncodingID,
                         LanguageID = isWindows ? (ushort)0x0409 : (ushort)0,
                         NameID = name.ID,
-                        Content = encoding.GetBytes(value)
+                        StringContent = value,
                     };
                 })
 
