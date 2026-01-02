@@ -6,6 +6,7 @@ using PdfToSvg.Common;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -39,6 +40,33 @@ namespace PdfToSvg.Cli
                         result = null;
                         return false;
                     }
+                }
+
+                bool ReadOptionalBooleanValue(string key)
+                {
+                    if (value != null)
+                    {
+                        return BooleanArgument(key, value);
+                    }
+                    
+                    if (i + 1 < args.Length)
+                    {
+                        var str = args[i + 1].ToLowerInvariant();
+
+                        if (str == "true")
+                        {
+                            i++;
+                            return true;
+                        }
+
+                        if (str == "false")
+                        {
+                            i++;
+                            return false;
+                        }
+                    }
+
+                    return true;
                 }
 
                 bool BooleanArgument(string key, string value)
@@ -110,21 +138,43 @@ namespace PdfToSvg.Cli
                     continue;
                 }
 
-                if (key == "--include-links" && TryReadValue(out value))
+                if (key == "--include-links")
                 {
-                    ConversionOptions.IncludeLinks = BooleanArgument(key, value);
+                    ConversionOptions.IncludeLinks = ReadOptionalBooleanValue(key);
                     continue;
                 }
 
-                if (key == "--include-annotations" && TryReadValue(out value))
+                if (key == "--include-annotations")
                 {
-                    ConversionOptions.IncludeAnnotations = BooleanArgument(key, value);
+                    ConversionOptions.IncludeAnnotations = ReadOptionalBooleanValue(key);
                     continue;
                 }
 
-                if (key == "--include-hidden-text" && TryReadValue(out value))
+                if (key == "--include-hidden-text")
                 {
-                    ConversionOptions.IncludeHiddenText = BooleanArgument(key, value);
+                    ConversionOptions.IncludeHiddenText = ReadOptionalBooleanValue(key);
+                    continue;
+                }
+
+                if (key == "--use-system-fonts")
+                {
+                    if (ReadOptionalBooleanValue(key))
+                    {
+                        ConversionOptions.FontRepository.AddSystemFonts();
+                    }
+                    continue;
+                }
+
+                if (key == "--external-fonts-dir" && TryReadValue(out value))
+                {
+                    try
+                    {
+                        ConversionOptions.FontRepository.AddDirectory(value, allowEmbedding: true);
+                    }
+                    catch (DirectoryNotFoundException)
+                    {
+                        throw new ArgumentException("Font directory \"" + value + "\" not found.");
+                    }
                     continue;
                 }
 
@@ -224,6 +274,23 @@ namespace PdfToSvg.Cli
             Console.WriteLine("              included in the generated SVG.");
             Console.WriteLine();
             Console.WriteLine("              Default: true");
+            Console.WriteLine();
+            Console.WriteLine();
+            Console.WriteLine("  --use-system-fonts <true|false>");
+            Console.WriteLine("              Specifies if fonts installed in the operating system can be used");
+            Console.WriteLine("              during conversion. System fonts are used for decoding text during");
+            Console.WriteLine("              the conversion process, but are not embedded in the output SVG.");
+            Console.WriteLine("              Note that conversion success might vary between machines if this");
+            Console.WriteLine("              option is enabled depending on the installed fonts.");
+            Console.WriteLine();
+            Console.WriteLine("              Default: false");
+            Console.WriteLine();
+            Console.WriteLine("  --external-fonts-dir <path>");
+            Console.WriteLine("              Specifies a directory where fonts can be found if they are not");
+            Console.WriteLine("              embedded in the PDF document. These fonts might be embedded in the");
+            Console.WriteLine("              output SVG.");
+            Console.WriteLine();
+            Console.WriteLine("              Default: <none>");
             Console.WriteLine();
             Console.WriteLine("EXAMPLE");
             Console.WriteLine("  pdftosvg.exe input.pdf output.svg --pages 1..2,9");
