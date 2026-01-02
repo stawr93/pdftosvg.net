@@ -1,0 +1,158 @@
+%PDF-1.7
+
+%===================================================
+% Original PDF
+
+1 0 obj
+<<
+   /Length 161
+>>
+stream
+   0.66 0.16 0 rg
+   BT
+      /F1 26 Tf
+      35 TL
+      1 0 0 1 80 750 Tm
+      
+      (Initial version)'
+      (This text should not be shown) '
+   ET
+endstream
+endobj
+
+2 0 obj [ 1 0 R ]
+endobj
+
+3 0 obj
+<<
+   /Type /Catalog
+   /Pages 4 0 R
+>>
+endobj
+
+4 0 obj
+<<
+   /Type /Pages
+   /Kids [ 5 0 R ]
+   /Count 1
+>>
+endobj
+
+5 0 obj
+<<
+   /Type /Page
+   /Parent 4 0 R
+   /Resources <<
+      /Font <<
+         /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+      >>
+   >>
+   /MediaBox [ 0 0 594.96 841.92 ]
+   /Contents 2 0 R 
+>>
+endobj
+
+xref
+0 6
+0000000000 65535 f
+0000000084 00000 n
+0000000309 00000 n
+0000000338 00000 n
+0000000401 00000 n
+0000000478 00000 n
+trailer
+<< /Root 3 0 R /Size 6 >>
+
+startxref
+721
+%%EOF
+
+%===================================================
+% Updated PDF
+% Replaced content with 6
+
+6 0 obj
+<<
+   /Length 169
+>>
+stream
+   0.05 0.16 0.2 rg
+   BT
+      /F1 26 Tf
+      35 TL
+      1 0 0 1 80 750 Tm
+      
+      (First update) '
+      (This text should be shown) '
+      () '
+   ET
+endstream
+endobj
+
+2 0 obj [ 6 0 R ]
+endobj
+
+xref
+2 1
+0000001246 00000 n
+6 1
+0000001013 00000 n
+trailer
+<< /Root 3 0 R /Size 7 /Prev 721 >>
+
+startxref
+1275
+%%EOF
+
+
+%===================================================
+% Updated PDF
+% Object 1 has been deleted, content object 7 added
+
+7 0 obj
+<<
+   /Length 164
+>>
+stream
+   0.25 0.38 0.42 rg
+   BT
+      /F1 26 Tf
+      35 TL
+      1 0 0 1 80 650 Tm
+      
+      (Second update) '
+      (This text should also be shown) '
+   ET
+endstream
+endobj
+
+% Fake object to ensure recovery mode is not enabled:
+
+2 0 obj [ 1 0 R ]
+endobj
+
+% Real object:
+
+2 0 obj [
+   6 0 R
+   7 0 R
+]
+endobj
+
+% Fake object to ensure recovery mode is not enabled:
+
+2 0 obj [ 1 0 R ]
+endobj
+
+xref
+1 2
+0000000000 65535 f
+0000001863 00000 n
+7 1
+0000001531 00000 n
+trailer
+<< /Root 3 0 R /Size 8 /Prev 1275 >>
+
+startxref
+1993
+%%EOF

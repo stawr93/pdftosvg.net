@@ -1,0 +1,18 @@
+﻿<svg width="595" height="842" preserveAspectRatio="xMidYMid meet" viewBox="0 0 594.96 841.92" xmlns="http://www.w3.org/2000/svg">
+<!-- Generator: PdfToSvg.NET -->
+<style>
+.ID1 text{white-space:pre;}
+.ID2{font-family:Helvetica,Arial,sans-serif;font-weight:bold;font-size:26px;fill:#0c2833;}
+.ID3{font-family:Helvetica,Arial,sans-serif;font-weight:bold;font-size:26px;fill:#3f606b;}
+</style>
+<g class="ID1">
+<g class="ID2">
+<text x="80" y="126.92">First update</text>
+<text x="80" y="161.92">This text should be shown</text>
+</g>
+<g class="ID3">
+<text x="80" y="226.92">Second update</text>
+<text x="80" y="261.92">This text should also be shown</text>
+</g>
+</g>
+</svg>
