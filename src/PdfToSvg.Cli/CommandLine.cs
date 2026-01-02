@@ -9,7 +9,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace PdfToSvg.Cli
@@ -79,11 +78,10 @@ namespace PdfToSvg.Cli
                     };
                 }
 
-                var optionWithValue = Regex.Match(key, "^(--?[a-z-]+)=(.+)");
-                if (optionWithValue.Success)
+                if (TryParseArgumentWithValue(key, out var keyCandidate, out var valueCandidate))
                 {
-                    key = optionWithValue.Groups[1].Value;
-                    value = optionWithValue.Groups[2].Value;
+                    key = keyCandidate;
+                    value = valueCandidate;
                 }
 
                 if (key == "-h" || key == "/?" || key == "/h" || key == "--help" ||
@@ -192,6 +190,48 @@ namespace PdfToSvg.Cli
 
                 throw new ArgumentException("Unknown argument \"" + key + "\".");
             }
+        }
+
+        public static bool TryParseArgumentWithValue(string arg, out string key, out string value)
+        {
+            key = "";
+            value = "";
+
+            var cursor = 0;
+            if (cursor >= arg.Length || arg[cursor++] != '-')
+            {
+                return false;
+            }
+
+            if (cursor < arg.Length && arg[cursor] == '-')
+            {
+                cursor++;
+            }
+
+            var keyStart = cursor;
+
+            while (cursor < arg.Length)
+            {
+                var ch = arg[cursor];
+
+                if (ch >= 'a' && ch <= 'z' || ch == '-')
+                {
+                    cursor++;
+                    continue;
+                }
+                else if (ch == '=' && cursor > keyStart + 1)
+                {
+                    key = arg.Substring(0, cursor);
+                    value = arg.Substring(cursor + 1);
+                    return true;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            return false;
         }
 
         public bool ShowHelp { get; }

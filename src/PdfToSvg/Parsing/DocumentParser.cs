@@ -11,7 +11,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
+//using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -51,13 +51,22 @@ namespace PdfToSvg.Parsing
         {
             var str = Encoding.ASCII.GetString(buffer, offset, count);
 
-            var version = Regex.Match(str, "%PDF-[12].\\d");
-            if (!version.Success)
+            // Equal regex: %PDF-[12]\.\d
+
+            const string Prefix = "%PDF-";
+            var index = str.IndexOf(Prefix);
+            
+            if (index < 0 ||
+                index + Prefix.Length + 2 >= str.Length ||
+                str[index + Prefix.Length + 1] != '.' ||
+                "12".IndexOf(str[index + Prefix.Length + 0]) < 0 ||
+                "0123456789".IndexOf(str[index + Prefix.Length + 2]) < 0
+                )
             {
                 throw ParserExceptions.HeaderNotFound();
             }
 
-            return version.Index;
+            return index;
         }
 
         public int ReadFileHeaderOffset()
@@ -78,15 +87,39 @@ namespace PdfToSvg.Parsing
 
         private static long ReadStartXRef(byte[] buffer, int offset, int count)
         {
+            const string Startxref = "startxref";
+            const string Whitespace = "\0\t\n\f\r ";
+            const string EofMarker = "%%EOF";
+
             var str = Encoding.ASCII.GetString(buffer, offset, count);
 
-            var eof = Regex.Match(str, "startxref[\0\t\n\f\r ]*([0-9]+)[\0\t\n\f\r ]*%%EOF", RegexOptions.RightToLeft);
-            if (!eof.Success)
+            var headCursor = str.Length;
+
+            while (headCursor >= 0)
             {
-                return -1;
+                var index = str.LastIndexOf(Startxref, headCursor, headCursor + 1);
+                if (index < 0)
+                {
+                    return -1;
+                }
+                headCursor = index - 1;
+
+                var matcher = new PatternMatcher(str, index + Startxref.Length);
+
+                matcher.SkipChars(Whitespace, max: 200);
+
+                if (matcher.ReadInt64(out var startXrefIndex))
+                {
+                    matcher.SkipChars(Whitespace, max: 200);
+
+                    if (matcher.ReadString(EofMarker))
+                    {
+                        return startXrefIndex;
+                    }
+                }
             }
 
-            return long.Parse(eof.Groups[1].Value, CultureInfo.InvariantCulture);
+            return -1;
         }
 
         public long ReadStartXRef()

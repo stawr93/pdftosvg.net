@@ -6,9 +6,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace PdfToSvg.Common
 {
@@ -32,28 +29,54 @@ namespace PdfToSvg.Common
                 var trimmed = part.Trim();
                 if (trimmed.Length > 0)
                 {
-                    var match = Regex.Match(part.Trim(), "^(?:\\.\\.(\\d{1,4})|(\\d{1,4})(\\.\\.(\\d{1,4})?)?)$");
-                    if (match.Success)
+                    var rangeParts = trimmed.Split([".."], count: 2, StringSplitOptions.None);
+
+                    if (rangeParts.Length == 0)
                     {
-                        if (match.Groups[1].Success)
+                        return false;
+                    }
+
+                    // FROM
+                    var from = -1;
+                    if (rangeParts[0].Length > 0)
+                    {
+                        if (!int.TryParse(rangeParts[0], NumberStyles.None, CultureInfo.InvariantCulture, out from))
                         {
-                            result.Add(new PageRange(-1, int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture)));
+                            return false;
+                        }
+                    }
+
+                    if (rangeParts.Length == 1)
+                    {
+                        if (from < 0)
+                        {
+                            return false;
                         }
                         else
                         {
-                            var from = int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture);
-
-                            var to =
-                                match.Groups[4].Success ? int.Parse(match.Groups[4].Value, CultureInfo.InvariantCulture) :
-                                match.Groups[3].Success ? -1 :
-                                from;
-
-                            result.Add(new PageRange(from, to));
+                            result.Add(new PageRange(from, from));
                         }
                     }
                     else
                     {
-                        return false;
+                        // TO
+                        var to = -1;
+                        if (rangeParts[1].Length > 0)
+                        {
+                            if (!int.TryParse(rangeParts[1], NumberStyles.None, CultureInfo.InvariantCulture, out to))
+                            {
+                                return false;
+                            }
+                        }
+
+                        if (from < 0 && to < 0)
+                        {
+                            return false;
+                        }
+                        else
+                        {
+                            result.Add(new PageRange(from, to));
+                        }
                     }
                 }
             }

@@ -2,13 +2,10 @@
 // https://github.com/dmester/pdftosvg.net
 // Licensed under the MIT License.
 
-using PdfToSvg.Fonts.CompactFonts;
 using PdfToSvg.Fonts.OpenType.Enums;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
 
 namespace PdfToSvg.Fonts.OpenType.Conversion
 {
@@ -16,27 +13,35 @@ namespace PdfToSvg.Fonts.OpenType.Conversion
     {
         private struct FontWidthPattern
         {
-            public FontWidthPattern(string pattern, FontWidth fontWidth)
+            public FontWidthPattern(string name, FontWidth fontWidth)
             {
-                Pattern = new Regex(pattern, RegexOptions.IgnoreCase);
+                Name = name;
                 FontWidth = fontWidth;
             }
 
-            public Regex Pattern { get; }
+            public string Name { get; }
             public FontWidth FontWidth { get; }
         }
 
         private static FontWidthPattern[] fontWidthPatterns = new[]
         {
-            new FontWidthPattern("Ultra-?Condensed", FontWidth.UltraCondensed),
-            new FontWidthPattern("Extra-?Condensed", FontWidth.ExtraCondensed),
-            new FontWidthPattern("Semi-?Condensed", FontWidth.SemiCondensed),
-            new FontWidthPattern("Semi-?Expanded", FontWidth.SemiExpanded),
-            new FontWidthPattern("Extra-?Expanded", FontWidth.ExtraExpanded),
-            new FontWidthPattern("Ultra-?Expanded", FontWidth.UltraExpanded),
-            new FontWidthPattern("Medium", FontWidth.Medium),
-            new FontWidthPattern("Condensed", FontWidth.Condensed),
-            new FontWidthPattern("Expanded", FontWidth.Expanded),
+            new FontWidthPattern("ultra-condensed", FontWidth.UltraCondensed),
+            new FontWidthPattern("extra-condensed", FontWidth.ExtraCondensed),
+            new FontWidthPattern("semi-condensed", FontWidth.SemiCondensed),
+            new FontWidthPattern("semi-expanded", FontWidth.SemiExpanded),
+            new FontWidthPattern("extra-expanded", FontWidth.ExtraExpanded),
+            new FontWidthPattern("ultra-expanded", FontWidth.UltraExpanded),
+
+            new FontWidthPattern("ultracondensed", FontWidth.UltraCondensed),
+            new FontWidthPattern("extracondensed", FontWidth.ExtraCondensed),
+            new FontWidthPattern("semicondensed", FontWidth.SemiCondensed),
+            new FontWidthPattern("semiexpanded", FontWidth.SemiExpanded),
+            new FontWidthPattern("extraexpanded", FontWidth.ExtraExpanded),
+            new FontWidthPattern("ultraexpanded", FontWidth.UltraExpanded),
+
+            new FontWidthPattern("medium", FontWidth.Medium),
+            new FontWidthPattern("condensed", FontWidth.Condensed),
+            new FontWidthPattern("expanded", FontWidth.Expanded),
         };
 
         // Ranges on the format <range start>, <range end>, <bit>
@@ -218,9 +223,11 @@ namespace PdfToSvg.Fonts.OpenType.Conversion
         {
             if (fullFontName != null)
             {
+                fullFontName = fullFontName.ToLowerInvariant();
+
                 for (var i = 0; i < fontWidthPatterns.Length; i++)
                 {
-                    if (fontWidthPatterns[i].Pattern.IsMatch(fullFontName))
+                    if (fullFontName.Contains(fontWidthPatterns[i].Name))
                     {
                         return fontWidthPatterns[i].FontWidth;
                     }

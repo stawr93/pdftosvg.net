@@ -19,6 +19,56 @@ namespace PdfToSvg.Tests.Parsing
     internal class DocumentParserTests
     {
         [Test]
+        [TestCase("%PDF-1.2", 0)]
+        [TestCase("%PDF-1.2 ", 0)]
+        [TestCase(" %PDF-1.2", 1)]
+        [TestCase(" %PDF-1.2 %PDF-1.2 ", 1)]
+        [TestCase(" %PDF- 1.2", -1)]
+        [TestCase(" %PDF-0.2", -1)]
+        [TestCase(" %PDF-1.b", -1)]
+        [TestCase(" %PDF-1.", -1)]
+        [TestCase(" %PDF-112", -1)]
+        public void ReadFileHeaderOffset(string haystack, int expectedOffset)
+        {
+            var stream = new MemoryStream(Encoding.ASCII.GetBytes(haystack));
+            var parser = new DocumentParser(new InputFile(stream, false), stream);
+
+            int actualOffset;
+            try
+            {
+                actualOffset = parser.ReadFileHeaderOffset();
+            }
+            catch (ParserException ex) when (ex.Message == ParserExceptions.HeaderNotFound().Message)
+            {
+                actualOffset = -1;
+            }
+
+            Assert.AreEqual(expectedOffset, actualOffset);
+        }
+
+        [Test]
+        [TestCase("startxref startxref  %%EOF", -1)]
+        [TestCase("startxref 9 %%EOF", 9)]
+        [TestCase("startxref 9 %%EO", -1)]
+        [TestCase("startxref 9", -1)]
+        [TestCase("startxref", -1)]
+        [TestCase("", -1)]
+        [TestCase(" startxref startxre 123 %%EOF   ", -1)]
+        [TestCase(" startxref startxref 123 %%EOF   ", 123)]
+        [TestCase(" startxref \t\t\n\r 123 \t\t\n\r %%EOF   ", 123)]
+        [TestCase(" startxref123%%EOF   ", 123)]
+        [TestCase(" startxref 123 %%EOF  startxref 124 %%EOF   ", 124)]
+        public void ReadStartXRef(string haystack, int expectedOffset)
+        {
+            var stream = new MemoryStream(Encoding.ASCII.GetBytes(haystack));
+            var parser = new DocumentParser(new InputFile(stream, false), stream);
+
+            var actualOffset = parser.ReadStartXRef();
+
+            Assert.AreEqual((long)expectedOffset, actualOffset);
+        }
+
+        [Test]
         public void ReadCrossReferenceTable()
         {
             var stream = new MemoryStream(Encoding.ASCII.GetBytes(
