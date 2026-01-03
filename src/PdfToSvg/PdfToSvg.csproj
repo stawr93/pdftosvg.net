@@ -56,4 +56,9 @@
     </PackageReference>
   </ItemGroup>
 
+  <!-- Source generators -->
+  <ItemGroup>
+    <ProjectReference Include="..\PdfToSvg.SourceGenerators\PdfToSvg.SourceGenerators.csproj" SetTargetFramework="TargetFramework=netstandard2.0" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
 </Project>

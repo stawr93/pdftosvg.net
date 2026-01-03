@@ -25,6 +25,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PdfToSvg.Packer", "src\PdfT
 		{B2F05434-2A26-43A3-B016-52BFDEE736D0} = {B2F05434-2A26-43A3-B016-52BFDEE736D0}
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PdfToSvg.SourceGenerators", "src\PdfToSvg.SourceGenerators\PdfToSvg.SourceGenerators.csproj", "{A81AE37B-0965-63F9-34C9-9D9E1C4372DF}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PdfToSvg.Cli.Tests", "tests\PdfToSvg.Cli.Tests\PdfToSvg.Cli.Tests.csproj", "{06DE65FD-81FF-4F47-8E3F-1827CD6F61A1}"
 EndProject
 Global
@@ -57,6 +59,10 @@ Global
 		{899BB00E-2396-499D-8934-FE1965DBD0B9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{899BB00E-2396-499D-8934-FE1965DBD0B9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{899BB00E-2396-499D-8934-FE1965DBD0B9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A81AE37B-0965-63F9-34C9-9D9E1C4372DF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A81AE37B-0965-63F9-34C9-9D9E1C4372DF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A81AE37B-0965-63F9-34C9-9D9E1C4372DF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A81AE37B-0965-63F9-34C9-9D9E1C4372DF}.Release|Any CPU.Build.0 = Release|Any CPU
 		{06DE65FD-81FF-4F47-8E3F-1827CD6F61A1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{06DE65FD-81FF-4F47-8E3F-1827CD6F61A1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{06DE65FD-81FF-4F47-8E3F-1827CD6F61A1}.Release|Any CPU.ActiveCfg = Release|Any CPU
