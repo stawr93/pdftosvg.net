@@ -233,9 +233,8 @@ namespace PdfToSvg
         ///         
         ///         foreach (var image in page.Images)
         ///         {
-        ///             var content = image.GetContent();
         ///             var fileName = $"page{pageNo}_image{imageNo++}{image.Extension}";
-        ///             File.WriteAllBytes(fileName, content);
+        ///             image.Save(fileName);
         ///         }
         ///         
         ///         pageNo++;
