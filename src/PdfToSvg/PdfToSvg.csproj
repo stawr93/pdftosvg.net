@@ -56,6 +56,20 @@
     </PackageReference>
   </ItemGroup>
 
+  <!--
+    We are getting the following warnings from NETStandard.Library 1.6.1:
+
+      warning NU1903: Package 'System.Net.Http' 4.3.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-7jgj-8wvc-jh57
+      warning NU1903: Package 'System.Text.RegularExpressions' 4.3.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-cmhx-cq75-c4mj
+
+    These warnings are suppressed by referencing fixed versions of these packages directly, but marked as private assets.
+    The consumer can decide if they want to update these packages or not. PdfToSvg itself does not use these packages.
+  -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard1.6'">
+    <PackageReference Include="System.Net.Http" Version="4.3.4" PrivateAssets="all" />
+    <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" PrivateAssets="all" />
+  </ItemGroup>
+
   <!-- Source generators -->
   <ItemGroup>
     <ProjectReference Include="..\PdfToSvg.SourceGenerators\PdfToSvg.SourceGenerators.csproj" SetTargetFramework="TargetFramework=netstandard2.0" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
