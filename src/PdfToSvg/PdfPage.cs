@@ -151,7 +151,22 @@ namespace PdfToSvg
         ///     <paramref name="path"/> was <c>null</c>.
         /// </exception>
         /// <exception cref="ArgumentException">
-        ///     <paramref name="path"/> was an empty string.
+        ///     <paramref name="path"/> was empty or an invalid path.
+        /// </exception>
+        /// <exception cref="PathTooLongException">
+        ///     The length of <paramref name="path"/> exceeded the system maximum length.
+        /// </exception>
+        /// <exception cref="DirectoryNotFoundException">
+        ///     The directory of <paramref name="path"/> did not exist.
+        /// </exception>
+        /// <exception cref="UnauthorizedAccessException">
+        ///     The user does not have permission to write to <paramref name="path"/>.
+        /// </exception>
+        /// <exception cref="IOException">
+        ///     I/O exception while writing to <paramref name="path"/>.
+        /// </exception>
+        /// <exception cref="NotSupportedException">
+        ///     The <paramref name="path"/> is specified on an unsupported format.
         /// </exception>
         /// <exception cref="PermissionException">
         ///     Content extraction from this document is forbidden by the document author. 
