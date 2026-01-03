@@ -35,7 +35,7 @@ namespace PdfToSvg.Filters
             }
             else
             {
-                ZLibStream.VerifyHeader(cmf, flg);
+                PdfToSvg.IO.ZLibStream.VerifyHeader(cmf, flg);
 
                 var deflateStream = new DeflateStream(stream, CompressionMode.Decompress);
                 return PredictorStream.Create(deflateStream, decodeParms);
