@@ -21,6 +21,12 @@ namespace PdfToSvg.Cli.Tests
 
         private const string TestFilesDirName = "TestFiles";
 
+#if NET45
+        private const string ActualDirName = "actual-cli-net45";
+#elif NET10_0
+        private const string ActualDirName = "actual-cli-net10-nativeaot";
+#endif
+
         static TestFiles()
         {
             var directory = TestContext.CurrentContext.WorkDirectory;
@@ -55,6 +61,6 @@ namespace PdfToSvg.Cli.Tests
 
         public static string ExpectedDirectory => Path.Combine(TestFilesPath, OwnTestFilesDirName, ExpectedDirName);
 
-        public static string OutputDirectory => Path.Combine(TestFilesPath, OwnTestFilesDirName, "actual-cli");
+        public static string OutputDirectory => Path.Combine(TestFilesPath, OwnTestFilesDirName, ActualDirName);
     }
 }

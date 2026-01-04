@@ -25,7 +25,11 @@ namespace PdfToSvg.Cli.Tests
                 throw new Exception("Native EXE path not found");
             }
 
+#if NET45
             return Path.Combine(binDir, "pdftosvg.exe");
+#else
+            return Path.Combine(binDir, "publish", "pdftosvg.exe");
+#endif
         }
 
         private static string GetInputFilePath(string fileName)

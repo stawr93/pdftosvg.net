@@ -81,7 +81,12 @@ namespace PdfToSvg.Cli
 
                 var originalLeft = Console.CursorLeft;
                 var originalTop = Console.CursorTop;
+
+#if NET5_0_OR_GREATER
+                var cursorWasVisible = OperatingSystem.IsWindows() && Console.CursorVisible;
+#else
                 var cursorWasVisible = Console.CursorVisible;
+#endif
 
                 if (originalTop < LineOffset)
                 {

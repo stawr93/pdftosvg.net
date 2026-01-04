@@ -1,0 +1,59 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>pdftosvg</AssemblyName>
+    <RootNamespace>PdfToSvg</RootNamespace>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ApplicationIcon>..\PdfToSvg.Cli\Resources\pdftosvg-cli.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <!-- Trimming options can be found here: -->
+  <!-- https://learn.microsoft.com/en-us/dotnet/core/deploying/trimming/trimming-options -->
+  <PropertyGroup>
+    <PublishAot>true</PublishAot>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!-- https://github.com/dotnet/runtime/blob/main/src/coreclr/nativeaot/docs/optimizing.md -->
+    <!-- https://en.wikipedia.org/wiki/X86-64#Microarchitecture_levels -->
+    <IlcInstructionSet>x86-64-v2</IlcInstructionSet>
+    
+    <!-- Speed and Size does not seem to affect performance for PdfToSvg, but Speed makes the EXE about 0.6 MB larger -->
+    <OptimizationPreference>Size</OptimizationPreference>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <!-- About 300 kB -->
+    <StackTraceSupport>false</StackTraceSupport>
+
+    <!-- About 230 kB -->
+    <DebuggerSupport>false</DebuggerSupport>
+  </PropertyGroup>
+
+  <!-- From PdfToSvg -->
+  <ItemGroup>
+    <Compile Include="..\PdfToSvg\**\*.cs" Visible="false" />
+    <Compile Remove="..\PdfToSvg\bin\Properties\AssemblyInfo.cs" Visible="false" />
+    <Compile Remove="..\PdfToSvg\bin\**\*.cs" Visible="false" />
+    <Compile Remove="..\PdfToSvg\obj\**\*.cs" Visible="false" />
+  </ItemGroup>
+
+  <!-- From PdfToSvg.Cli -->
+  <ItemGroup>
+    <Compile Include="..\PdfToSvg.Cli\**\*.cs" Visible="false" />
+    <Compile Remove="..\PdfToSvg.Cli\bin\**\*.cs" Visible="false" />
+    <Compile Remove="..\PdfToSvg.Cli\obj\**\*.cs" Visible="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PdfToSvg.SourceGenerators\PdfToSvg.SourceGenerators.csproj" SetTargetFramework="TargetFramework=netstandard2.0" GlobalPropertiesToRemove="RuntimeIdentifier" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <Target Name="PublishAfterBuild" AfterTargets="Build" Condition="'$(OS)' == 'Windows_NT' and '$(PdfToSvgIsPublishing)' != 'true'">
+    <MSBuild Projects="$(MSBuildThisFileFullPath)" Targets="Publish" Properties="NoBuild=true;PdfToSvgIsPublishing=true;Configuration=$(Configuration);RuntimeIdentifier=win-x64" />
+  </Target>
+
+</Project>
