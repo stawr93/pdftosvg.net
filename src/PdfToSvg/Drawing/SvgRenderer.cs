@@ -28,7 +28,8 @@ using System.Xml.Linq;
 
 namespace PdfToSvg.Drawing
 {
-    internal class SvgRenderer
+    [OperationTarget]
+    internal partial class SvgRenderer
     {
         private static readonly XNamespace ns = "http://www.w3.org/2000/svg";
         private static readonly XNamespace annotNs = "https://pdftosvg.net/xmlns/annotations";
@@ -118,8 +119,6 @@ namespace PdfToSvg.Drawing
 
         private XElement? clipWrapper;
         private string? clipWrapperId;
-
-        private static readonly OperationDispatcher dispatcher = new OperationDispatcher(typeof(SvgRenderer));
 
         private XElement style = new XElement(ns + "style");
 
@@ -537,7 +536,7 @@ namespace PdfToSvg.Drawing
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 renderer.DebugLogOperation(op.Operator, op.Operands);
-                dispatcher.Dispatch(renderer, op.Operator, op.Operands);
+                Proxy.Invoke(renderer, op.Operator, op.Operands);
             }
 
             renderer.AfterDispatch();
@@ -555,7 +554,7 @@ namespace PdfToSvg.Drawing
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 renderer.DebugLogOperation(op.Operator, op.Operands);
-                await dispatcher.DispatchAsync(renderer, op.Operator, op.Operands).ConfigureAwait(false);
+                await Proxy.InvokeAsync(renderer, op.Operator, op.Operands).ConfigureAwait(false);
             }
 
             renderer.AfterDispatch();
@@ -667,7 +666,7 @@ namespace PdfToSvg.Drawing
         [Operation("gs/D")]
         private void gs_D_DashArray(object[] args)
         {
-            dispatcher.Dispatch(this, "d", args);
+            Proxy.Invoke(this, "d", args);
         }
 
         [Operation("gs/CA")]
@@ -750,7 +749,7 @@ namespace PdfToSvg.Drawing
                 foreach (var state in extGState)
                 {
                     DebugLogOperation(state.Key.ToString(), new[] { state.Value }, isGs: true);
-                    dispatcher.Dispatch(this, "gs" + state.Key, new[] { state.Value });
+                    Proxy.Invoke(this, "gs" + state.Key, new[] { state.Value });
                 }
             }
         }
@@ -1217,7 +1216,7 @@ namespace PdfToSvg.Drawing
                     foreach (var operation in ContentParser.Parse(content))
                     {
                         DebugLogOperation(operation.Operator, operation.Operands);
-                        dispatcher.Dispatch(this, operation.Operator, operation.Operands);
+                        Proxy.Invoke(this, operation.Operator, operation.Operands);
                     }
                 }
                 finally
@@ -2868,7 +2867,7 @@ namespace PdfToSvg.Drawing
                 foreach (var op in ContentParser.Parse(paragraph.Type3Content))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    dispatcher.Dispatch(this, op.Operator, op.Operands);
+                    Proxy.Invoke(this, op.Operator, op.Operands);
                 }
             }
             finally

@@ -16,10 +16,9 @@ using System.Threading;
 
 namespace PdfToSvg.Fonts.Type3
 {
-    internal class Type3ToCharStringConverter
+    [OperationTarget]
+    internal partial class Type3ToCharStringConverter
     {
-        private static readonly OperationDispatcher dispatcher = new OperationDispatcher(typeof(Type3ToCharStringConverter));
-
         private double width;
 
         private Matrix transform = Matrix.Identity;
@@ -44,7 +43,7 @@ namespace PdfToSvg.Fonts.Type3
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    if (!dispatcher.Dispatch(converter, op.Operator, op.Operands))
+                    if (!Proxy.Invoke(converter, op.Operator, op.Operands))
                     {
                         // Operator that cannot be converted to a char string
                         return null;
