@@ -18,31 +18,6 @@ namespace System.Reflection
         {
             return type;
         }
-
-        public static Delegate CreateDelegate(this MethodInfo methodInfo, Type delegateType)
-        {
-            return Delegate.CreateDelegate(delegateType, methodInfo);
-        }
-
-        public static Delegate CreateDelegate(this MethodInfo methodInfo, Type delegateType, object target)
-        {
-            return Delegate.CreateDelegate(delegateType, target, methodInfo);
-        }
-
-        public static MethodInfo GetMethodInfo(this Delegate del)
-        {
-            return del.Method;
-        }
 #endif
-
-        public static TDelegate CreateDelegate<TDelegate>(this MethodInfo methodInfo)
-        {
-            return (TDelegate)(object)methodInfo.CreateDelegate(typeof(TDelegate));
-        }
-
-        public static TDelegate CreateDelegate<TDelegate>(this MethodInfo methodInfo, object target)
-        {
-            return (TDelegate)(object)methodInfo.CreateDelegate(typeof(TDelegate), target);
-        }
     }
 }
