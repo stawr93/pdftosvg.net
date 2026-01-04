@@ -3,6 +3,7 @@
 // Licensed under the MIT License.
 
 using PdfToSvg.DocumentModel;
+using PdfToSvg.IO;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -134,19 +135,17 @@ namespace PdfToSvg.Parsing
 
                 // Detect stream length
                 var startPosition = lexer.Stream.Position;
-                var streamLength = InlineImageHelper.DetectStreamLength(lexer.Stream, dictionary[Names.Filter] ?? dictionary[Names.F]);
+                var bytesToRead = InlineImageHelper.DetectStreamLength(lexer.Stream, dictionary[Names.Filter] ?? dictionary[Names.F]);
 
                 // Read stream data
-                var imageData = new byte[streamLength];
+                var imageData = new byte[bytesToRead];
                 lexer.Stream.Position = startPosition;
-                lexer.Stream.Read(imageData, 0, streamLength);
 
-                dictionary.MakeIndirectObject(default, new PdfMemoryStream(dictionary, imageData, streamLength));
+                var bytesActuallyRead = lexer.Stream.ReadAll(imageData, 0, bytesToRead);
 
-                if (lexer.Peek().Token == Token.EndImage)
-                {
-                    lexer.Read();
-                }
+                dictionary.MakeIndirectObject(default, new PdfMemoryStream(dictionary, imageData, bytesActuallyRead));
+
+                lexer.TryRead(Token.EndImage);
             }
             else if (nextLexeme.Token == Token.EndImage)
             {
