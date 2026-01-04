@@ -2,14 +2,11 @@
 // https://github.com/dmester/pdftosvg.net
 // Licensed under the MIT License.
 
-using PdfToSvg.Common;
-using PdfToSvg.DocumentModel;
 using PdfToSvg.Encodings;
 using PdfToSvg.Fonts.CharStrings;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace PdfToSvg.Fonts.Type1
 {
@@ -33,7 +30,7 @@ namespace PdfToSvg.Fonts.Type1
         public SingleByteEncoding? Encoding;
 
         public double[]? BlueValues;
-        public double BlueScale;
+        public double BlueScale = 0.039625;
         public double[]? StdHW;
         public double[]? StdVW;
         public double[]? StemSnapH;
