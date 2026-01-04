@@ -13,14 +13,6 @@ namespace PdfToSvg.DocumentModel
 {
     internal class PdfName : IEquatable<PdfName>
     {
-        // Lower memory usage by interning common names
-        private static Dictionary<string, PdfName> knownNames = typeof(Names)
-            .GetTypeInfo()
-            .GetProperties(BindingFlags.Public | BindingFlags.Static | BindingFlags.GetProperty)
-            .Select(x => x.GetValue(null, null) as PdfName)
-            .WhereNotNull()
-            .ToDictionary(x => x.Value, x => x);
-
         public PdfName(string value)
         {
             Value = value;
@@ -30,7 +22,8 @@ namespace PdfToSvg.DocumentModel
 
         public static PdfName Create(string value)
         {
-            return knownNames.TryGetValue(value, out var knownName) ? knownName : new PdfName(value);
+            // Lower memory usage by using interned common names
+            return Names.TryLookup(value, out var knownName) ? knownName : new PdfName(value);
         }
 
         public static PdfNamePath operator /(PdfName name1, PdfName name2)

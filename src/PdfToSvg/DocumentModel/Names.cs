@@ -18,7 +18,7 @@ namespace PdfToSvg.DocumentModel
         public static PdfName FallbackFont { get; } = new PdfName("$$FallbackFont");
     }
 
-    internal static class Names
+    internal static partial class Names
     {
         public static PdfName WinAnsiEncoding { get; } = new PdfName("WinAnsiEncoding");
         public static PdfName MacRomanEncoding { get; } = new PdfName("MacRomanEncoding");
