@@ -10,7 +10,8 @@ using System.Text;
 
 namespace PdfToSvg.Fonts.CompactFonts
 {
-    internal class CompactFontPrivateDict
+    [CompactFontDict]
+    internal partial class CompactFontPrivateDict
     {
         [CompactFontDictOperator(6)]
         public double[] BlueValues { get; set; } = ArrayUtils.Empty<double>();
