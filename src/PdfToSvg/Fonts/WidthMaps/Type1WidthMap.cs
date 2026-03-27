@@ -60,12 +60,11 @@ namespace PdfToSvg.Fonts.WidthMaps
                 return width;
             }
 
-            if (ch.CharCode >= firstChar && ch.CharCode <= lastChar)
-            {
-                return missingWidth;
-            }
-
-            return 0;
+            // ISO-32000-1 section 9.6.2.1
+            // /MissingWidth should be used for characters outside the FirstChar-LastChar range, but the spec does not
+            // specify what to do if the /Widths array does not cover all characters in that range. We will use
+            // /MissingWidth in that case as well.
+            return missingWidth;
         }
     }
 }

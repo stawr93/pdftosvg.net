@@ -24,7 +24,31 @@ namespace PdfToSvg.Fonts.Type1
     {
         private readonly Lexer lexer;
 
-        private static readonly Dictionary<string, Action<Type1FontInfo, Lexer>> readers = new(StringComparer.Ordinal);
+        private static readonly Dictionary<string, Action<Type1FontInfo, Lexer>> readers = new(StringComparer.Ordinal)
+        {
+            { "lenIV", (info, lexer) => ReadInteger(lexer, ref info.lenIV) },
+            { "Notice", (info, lexer) => ReadString(lexer, ref info.Notice) },
+            { "FullName", (info, lexer) => ReadString(lexer, ref info.FullName) },
+            { "FamilyName", (info, lexer) => ReadString(lexer, ref info.FamilyName) },
+            { "Weight", (info, lexer) => ReadString(lexer, ref info.Weight) },
+            { "ItalicAngle", (info, lexer) => ReadDouble(lexer, ref info.ItalicAngle) },
+            { "isFixedPitch", (info, lexer) => ReadBoolean(lexer, ref info.isFixedPitch) },
+            { "UnderlinePosition", (info, lexer) => ReadDouble(lexer, ref info.UnderlinePosition) },
+            { "UnderlineThickness", (info, lexer) => ReadDouble(lexer, ref info.UnderlineThickness) },
+            { "FontName", (info, lexer) => ReadString(lexer, ref info.FontName) },
+            { "PaintType", (info, lexer) => ReadInteger(lexer, ref info.PaintType) },
+            { "WMode", (info, lexer) => ReadInteger(lexer, ref info.WMode) },
+            { "FontBBox", (info, lexer) => ReadDoubleArray(lexer, ref info.FontBBox) },
+            { "FontType", (info, lexer) => ReadInteger(lexer, ref info.FontType) },
+            { "FontMatrix", (info, lexer) => ReadDoubleArray(lexer, ref info.FontMatrix) },
+            { "Encoding", (info, lexer) => ReadEncoding(lexer, ref info.Encoding) },
+
+            { "BlueValues", (info, lexer) => ReadDoubleArray(lexer, ref info.BlueValues) },
+            { "BlueScale", (info, lexer) => ReadDouble(lexer, ref info.BlueScale) },
+            { "StdHW", (info, lexer) => ReadDoubleArray(lexer, ref info.StdHW) },
+            { "StdVW", (info, lexer) => ReadDoubleArray(lexer, ref info.StdVW) },
+            { "StemSnapH", (info, lexer) => ReadDoubleArray(lexer, ref info.StemSnapH) },
+        };
 
         private static readonly Dictionary<string, Token> keywords = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -38,50 +62,12 @@ namespace PdfToSvg.Fonts.Type1
             { "NP", Token.NP },
         };
 
-        static Type1Parser()
-        {
-            var fields = typeof(Type1FontInfo)
-                .GetTypeInfo()
-                .GetFields(BindingFlags.Public | BindingFlags.Instance);
-
-            foreach (var field in fields)
-            {
-                if (field.FieldType == typeof(string))
-                {
-                    readers[field.Name] = (info, lexer) =>
-                    {
-                        var value = ReadString(lexer);
-                        if (value != null)
-                        {
-                            field.SetValue(info, value);
-                        }
-                    };
-                }
-                else if (field.FieldType == typeof(double[]))
-                {
-                    readers[field.Name] = (info, lexer) => field.SetValue(info, ReadDoubleArray(lexer));
-                }
-                else if (field.FieldType == typeof(double))
-                {
-                    readers[field.Name] = (info, lexer) => field.SetValue(info, ReadDouble(lexer));
-                }
-                else if (field.FieldType == typeof(int))
-                {
-                    readers[field.Name] = (info, lexer) => field.SetValue(info, ReadInteger(lexer));
-                }
-                else if (field.FieldType == typeof(SingleByteEncoding))
-                {
-                    readers[field.Name] = (info, lexer) => field.SetValue(info, ReadEncoding(lexer));
-                }
-            }
-        }
-
         public Type1Parser(byte[] data)
         {
             lexer = new Lexer(data, keywords);
         }
 
-        private static SingleByteEncoding? ReadEncoding(Lexer lexer)
+        private static void ReadEncoding(Lexer lexer, ref SingleByteEncoding? result)
         {
             var startLexeme = lexer.Read();
 
@@ -89,7 +75,8 @@ namespace PdfToSvg.Fonts.Type1
             {
                 if (startLexeme.Value.ToString() == "StandardEncoding")
                 {
-                    return SingleByteEncoding.Standard;
+                    result = SingleByteEncoding.Standard;
+                    return;
                 }
                 else
                 {
@@ -122,24 +109,24 @@ namespace PdfToSvg.Fonts.Type1
                 lexeme = lexer.Read();
             }
 
-            return new Type1Encoding(glyphNames);
+            result = new Type1Encoding(glyphNames);
         }
 
-        private static string? ReadString(Lexer lexer)
+        private static void ReadString(Lexer lexer, ref string? result)
         {
             var lexeme = lexer.Read();
 
             if (lexeme.Token == Token.LiteralString)
             {
-                return lexeme.Value.ToString();
+                result = lexeme.Value.ToString();
+                return;
             }
 
             if (lexeme.Token == Token.Name)
             {
-                return lexeme.Value.ToString();
+                result = lexeme.Value.ToString();
+                return;
             }
-
-            return null;
         }
 
         private static Dictionary<string, byte[]>? ReadCharStrings(Lexer lexer)
@@ -208,7 +195,7 @@ namespace PdfToSvg.Fonts.Type1
             return result;
         }
 
-        private static double[]? ReadDoubleArray(Lexer lexer)
+        private static void ReadDoubleArray(Lexer lexer, ref double[]? result)
         {
             var startLexeme = lexer.Peek();
 
@@ -221,7 +208,7 @@ namespace PdfToSvg.Fonts.Type1
 
                 lexer.Read();
 
-                var result = new List<double>();
+                var resultList = new List<double>();
                 var nextLexeme = lexer.Read();
 
                 while (
@@ -231,30 +218,23 @@ namespace PdfToSvg.Fonts.Type1
                     switch (nextLexeme.Token)
                     {
                         case Token.Integer:
-                            result.Add(nextLexeme.IntValue);
+                            resultList.Add(nextLexeme.IntValue);
                             break;
 
                         case Token.Real:
                             var dblValue = double.Parse(nextLexeme.Value.ToString(), CultureInfo.InvariantCulture);
-                            result.Add(dblValue);
+                            resultList.Add(dblValue);
                             break;
                     }
 
                     nextLexeme = lexer.Read();
                 }
 
-                return result.ToArray();
+                result = resultList.ToArray();
             }
-
-            return null;
         }
 
-        private static int ReadInteger(Lexer lexer)
-        {
-            return lexer.TryRead(Token.Integer, out var lexeme) ? lexeme.IntValue : 0;
-        }
-
-        private static double? ReadDouble(Lexer lexer)
+        private static void ReadInteger(Lexer lexer, ref int result)
         {
             var lexeme = lexer.Peek();
 
@@ -262,14 +242,54 @@ namespace PdfToSvg.Fonts.Type1
             {
                 case Token.Integer:
                     lexer.Read();
-                    return lexeme.IntValue;
+                    result = lexeme.IntValue;
+                    break;
 
                 case Token.Real:
                     lexer.Read();
-                    return double.Parse(lexeme.Value.ToString(), CultureInfo.InvariantCulture);
+                    result = (int)double.Parse(lexeme.Value.ToString(), CultureInfo.InvariantCulture);
+                    break;
+            }
+        }
 
-                default:
-                    return null;
+        private static void ReadDouble(Lexer lexer, ref double result)
+        {
+            var lexeme = lexer.Peek();
+
+            switch (lexeme.Token)
+            {
+                case Token.Integer:
+                    lexer.Read();
+                    result = lexeme.IntValue;
+                    break;
+
+                case Token.Real:
+                    lexer.Read();
+                    result = double.Parse(lexeme.Value.ToString(), CultureInfo.InvariantCulture);
+                    break;
+            }
+        }
+
+        private static void ReadBoolean(Lexer lexer, ref bool result)
+        {
+            var lexeme = lexer.Peek();
+
+            switch (lexeme.Token)
+            {
+                case Token.Integer:
+                    lexer.Read();
+                    result = lexeme.IntValue != 0;
+                    break;
+
+                case Token.True:
+                    lexer.Read();
+                    result = true;
+                    break;
+
+                case Token.False:
+                    lexer.Read();
+                    result = false;
+                    break;
             }
         }
 

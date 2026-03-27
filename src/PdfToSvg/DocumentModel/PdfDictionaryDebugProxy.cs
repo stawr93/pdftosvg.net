@@ -152,7 +152,7 @@ namespace PdfToSvg.DocumentModel
                     {
                         Indent(sb, indentation + 1);
                         sb.Append(prop.Key.ToString());
-                        sb.Append(" ");
+                        sb.Append(' ');
                         FullFormatEntry(sb, indentation + 1, prop.Value, consumed);
                         sb.AppendLine();
                     }
@@ -183,7 +183,7 @@ namespace PdfToSvg.DocumentModel
                     }
 
                     Indent(sb, indentation);
-                    sb.Append("]");
+                    sb.Append(']');
                 }
             }
             else

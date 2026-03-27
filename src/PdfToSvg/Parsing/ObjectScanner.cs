@@ -6,11 +6,9 @@ using PdfToSvg.DocumentModel;
 using PdfToSvg.IO;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 
 namespace PdfToSvg.Parsing
@@ -22,7 +20,7 @@ namespace PdfToSvg.Parsing
     /// </summary>
     internal static class ObjectScanner
     {
-        private enum ScanToken
+        internal enum ScanToken
         {
             Obj,
             EndObj,
@@ -39,7 +37,7 @@ namespace PdfToSvg.Parsing
             AfterStream,
         }
 
-        private class ScanLexeme
+        internal class ScanLexeme
         {
             public ScanToken Token;
             public long Position;
@@ -71,8 +69,10 @@ namespace PdfToSvg.Parsing
             }
         }
 
-        private static List<ScanLexeme> ScanStream(Stream stream, CancellationToken cancellationToken)
+        internal static List<ScanLexeme> ScanStream(Stream stream, CancellationToken cancellationToken)
         {
+            const string Whitespace = "\0\t\n\f\r ";
+
             var bufferStartPosition = 0L;
             var buffer = new byte[8096];
             var bufferLength = 0;
@@ -96,34 +96,67 @@ namespace PdfToSvg.Parsing
                 {
                     var bufferText = Encoding.ASCII.GetString(buffer, 0, bufferLength);
 
-                    foreach (Match match in Regex.Matches(bufferText, "[\r\n] {0,6}(stream\\b|endstream\\b|endobj\\b|trailer\\s{0,10}<<|(\\d{1,8}) (\\d{1,8}) obj\\b)"))
+                    for (var headCursor = 0; headCursor < bufferText.Length; headCursor++)
                     {
-                        var value = match.Groups[1].Value;
+                        // Line break
+                        if (bufferText[headCursor] != '\r' && bufferText[headCursor] != '\n')
+                        {
+                            continue;
+                        }
+
+                        var matcher = new PatternMatcher(bufferText, headCursor + 1);
+
+                        matcher.SkipChar(' ', max: 6);
+
+                        if (matcher.EndOfInput)
+                        {
+                            break;
+                        }
+
                         var lexeme = new ScanLexeme();
+                        lexeme.Position = bufferStartPosition + matcher.Cursor;
 
-                        lexeme.Position = bufferStartPosition + match.Groups[1].Index;
-
-                        if (value.StartsWith("stream"))
+                        // Keywords
+                        if (matcher.ReadKeyword("stream"))
                         {
                             lexeme.Token = ScanToken.Stream;
                         }
-                        else if (value.StartsWith("endstream"))
+                        else if (matcher.ReadKeyword("endstream"))
                         {
                             lexeme.Token = ScanToken.EndStream;
                         }
-                        else if (value.StartsWith("endobj"))
+                        else if (matcher.ReadKeyword("endobj"))
                         {
                             lexeme.Token = ScanToken.EndObj;
                         }
-                        else if (value.StartsWith("trailer"))
+                        else if (matcher.ReadKeyword("trailer"))
                         {
-                            lexeme.Token = ScanToken.Trailer;
+                            matcher.SkipChars(Whitespace, max: 10);
+
+                            if (matcher.ReadString("<<"))
+                            {
+                                lexeme.Token = ScanToken.Trailer;
+                            }
+                            else
+                            {
+                                continue;
+                            }
                         }
                         else
                         {
+                            // Object definition
+                            if (!matcher.ReadInt32(out var objectNumber) ||
+                                !matcher.SkipChar(' ', min: 1, max: 5) ||
+                                !matcher.ReadInt32(out var generation) ||
+                                !matcher.SkipChar(' ', min: 1, max: 5) ||
+                                !matcher.ReadKeyword("obj"))
+                            {
+                                continue;
+                            }
+
                             lexeme.Token = ScanToken.Obj;
-                            lexeme.ObjectNumber = int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture);
-                            lexeme.Generation = int.Parse(match.Groups[3].Value, CultureInfo.InvariantCulture);
+                            lexeme.ObjectNumber = objectNumber;
+                            lexeme.Generation = generation;
                         }
 
                         lexemes.Add(lexeme);

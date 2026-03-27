@@ -9,6 +9,7 @@ on:
 env:
   PdfToSvgSkipSigning: true
   DOTNET_SYSTEM_GLOBALIZATION_INVARIANT: 1
+  SatelliteResourceLanguages: en  # See https://github.com/dotnet/sdk/issues/37636
 
 jobs:
   build:
@@ -19,16 +20,17 @@ jobs:
         os: [ 'ubuntu-22.04', 'windows-latest' ]
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v5
       with:
         dotnet-version: |
           3.1.x
           5.0.x
           6.0.x
           8.0.x
+          10.0.x
 
     - name: Restore dependencies
       run: dotnet restore
@@ -39,8 +41,16 @@ jobs:
     - name: Test
       run: dotnet test tests/PdfToSvg.Tests/PdfToSvg.Tests.csproj --no-build -c Release --verbosity normal --collect "Code Coverage;Format=cobertura" --results-directory TestResults
 
+    - name: Test CLI
+      if: ${{ matrix.os == 'windows-latest' }}
+      run: dotnet test tests/PdfToSvg.Cli.Tests/PdfToSvg.Cli.Tests.csproj --no-build -c Release --verbosity normal --results-directory TestResults
+
+    - name: Test CLI Native AOT
+      if: ${{ matrix.os == 'windows-latest' }}
+      run: dotnet test tests/PdfToSvg.Cli.NativeAot.Tests/PdfToSvg.Cli.NativeAot.Tests.csproj --no-build -c Release --verbosity normal --results-directory TestResults
+
     - name: Code coverage report
-      uses: danielpalme/ReportGenerator-GitHub-Action@5.3.8
+      uses: danielpalme/ReportGenerator-GitHub-Action@v5
       with:
         reports: "TestResults/**/*.cobertura.xml"
         targetdir: "TestReport"
@@ -48,12 +58,12 @@ jobs:
         assemblyfilters: '+PdfToSvg'
         classfilters: '-System.*'
 
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v6
       with:
         name: coverage-${{ matrix.os }}
         path: TestReport
 
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v6
       if: ${{ failure() }}
       with:
         name: actual-${{ matrix.os }}

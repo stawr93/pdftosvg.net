@@ -19,6 +19,11 @@ namespace PdfToSvg.Parsing
         private Dictionary<string, Token> keywords;
         private Dictionary<string, int> keywordPrefixesAndMaxLengths;
 
+        public Lexer(ArraySegment<byte> source, Dictionary<string, Token>? keywords = null) : this(
+            stream: new BufferedMemoryReader(source),
+            keywords)
+        { }
+
         public Lexer(byte[] source, Dictionary<string, Token>? keywords = null) : this(
             stream: new BufferedMemoryReader(source),
             keywords)
@@ -183,15 +188,23 @@ namespace PdfToSvg.Parsing
 
                 if (keyword == Token.Stream)
                 {
+                    // According to ISO 32000-2-2020 section 7.3.8, the `stream` keyword must be followed by either
+                    // CR+LF or LF, but not CR alone. In #60 it was however followed by only CR. The PDF works fine in
+                    // other PDF readers, so we need to handle this as well.
+
                     nextChar = Stream.PeekChar();
 
                     if (nextChar == '\r')
                     {
-                        Stream.Skip(2); // CR + LF
+                        // Carriage return, possibly followed by line feed
+                        Stream.Skip();
+                        nextChar = Stream.PeekChar();
                     }
-                    else if (nextChar == '\n')
+                    
+                    if (nextChar == '\n')
                     {
-                        Stream.Skip(); // LF
+                        // Line feed
+                        Stream.Skip();
                     }
                 }
 

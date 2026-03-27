@@ -1,0 +1,43 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\PdfToSvg.Cli.Tests\**\*.cs" Visible="false" />
+    <Compile Remove="..\PdfToSvg.Cli.Tests\bin\**\*.cs" />
+    <Compile Remove="..\PdfToSvg.Cli.Tests\obj\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\PdfToSvg.Tests\PngTestUtils.cs" Visible="false" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <PackageReference Include="NUnit" Version="3.14.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.5.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.10.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\PdfToSvg.Cli.NativeAot\PdfToSvg.Cli.NativeAot.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup Condition="$(Configuration) == 'Release' And $(PdfToSvgKeyFile) != ''">
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>$(PdfToSvgKeyFile)</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+
+  <Target Name="CopyPdfToSvgNativeAotFiles" AfterTargets="ResolveProjectReferences" Condition="'$(OS)' == 'Windows_NT'">
+    <ItemGroup>
+      <PdfToSvgNativeAotFiles Include="$(MSBuildThisFileDirectory)..\..\src\PdfToSvg.Cli.NativeAot\bin\$(Configuration)\net10.0\win-x64\publish\*" />
+    </ItemGroup>
+    <Copy SkipUnchangedFiles="true" SourceFiles="@(PdfToSvgNativeAotFiles)" DestinationFolder="$(TargetDir)\publish\" />
+  </Target>
+
+
+</Project>

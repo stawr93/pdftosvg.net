@@ -26,15 +26,19 @@ namespace PdfToSvg.Fonts.CompactFonts
             this.data = data;
         }
 
-        private void ReadDict
-            <[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] TDict>
-            (TDict dict, int position, int length)
-            where TDict : notnull
+        private void ReadDict(CompactFontDict dict, int position, int length)
         {
             reader.Position = position;
 
             var dictData = reader.ReadDict(length);
-            CompactFontDictSerializer.Deserialize(dict, dictData, fontSet.Strings);
+            dict.Deserialize(dictData, fontSet.Strings);
+        }
+        private void ReadDict(CompactFontPrivateDict dict, int position, int length)
+        {
+            reader.Position = position;
+
+            var dictData = reader.ReadDict(length);
+            dict.Deserialize(dictData, fontSet.Strings);
         }
 
         private void ReadFDSelect(IList<int> fdSelect, int nGlyphs)
@@ -319,7 +323,7 @@ namespace PdfToSvg.Fonts.CompactFonts
 
                 reader.Position = fdArrayIndex[j];
                 var fdDictData = reader.ReadDict(fdArrayIndex[j + 1] - fdArrayIndex[j]);
-                CompactFontDictSerializer.Deserialize(fdFont.FontDict, fdDictData, fontSet.Strings);
+                fdFont.FontDict.Deserialize(fdDictData, fontSet.Strings);
 
                 var subrsFound = false;
 

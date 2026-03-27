@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 namespace PdfToSvg.RealLifeTests
 {
     [TestFixture]
+    [Parallelizable(ParallelScope.Children)]
     public class ConversionTests
     {
         private const string TestFilesDir = "TestFiles";

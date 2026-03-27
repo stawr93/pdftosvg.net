@@ -71,10 +71,8 @@ namespace PdfToSvg.Drawing
 
             foreach (var pageDict in pageDicts)
             {
-                using (var contentStream = await ContentStream.CombineAsync(pageDict, cancellationToken).ConfigureAwait(false))
-                {
-                    await VisitContentAsync(images, pageDict, contentStream, depth: 0).ConfigureAwait(false);
-                }
+                var content = await ContentStream.CombineAsync(pageDict, cancellationToken).ConfigureAwait(false);
+                await VisitContentAsync(images, pageDict, content, depth: 0).ConfigureAwait(false);
             }
 
             return images.ToList();
@@ -84,24 +82,24 @@ namespace PdfToSvg.Drawing
         {
             if (objectDict.Stream != null && depth <= MaxDepth)
             {
-                MemoryStream memoryStream;
+                ArraySegment<byte> content;
 
                 using (var decodedStream = await objectDict.Stream.OpenDecodedAsync(cancellationToken).ConfigureAwait(false))
                 {
-                    memoryStream = await decodedStream.ToMemoryStreamAsync(cancellationToken).ConfigureAwait(false);
+                    content = await decodedStream.ToArraySegmentAsync().ConfigureAwait(false);
                 }
 
-                await VisitContentAsync(images, objectDict, memoryStream, depth).ConfigureAwait(false);
+                await VisitContentAsync(images, objectDict, content, depth).ConfigureAwait(false);
             }
         }
 
-        private async Task VisitContentAsync(HashSet<Image> images, PdfDictionary ownerDict, Stream contentStream, int depth)
+        private async Task VisitContentAsync(HashSet<Image> images, PdfDictionary ownerDict, ArraySegment<byte> content, int depth)
         {
             var handledGStates = new HashSet<PdfName>();
             var handledObjects = new HashSet<PdfName>();
             var handledPatterns = new HashSet<PdfName>();
 
-            foreach (var op in ContentParser.Parse(contentStream))
+            foreach (var op in ContentParser.Parse(content))
             {
                 switch (op.Operator)
                 {
@@ -148,12 +146,11 @@ namespace PdfToSvg.Drawing
 #if HAVE_ASYNC_ENUMERABLE
         public async IAsyncEnumerable<Image> VisitPageAsync(PdfDictionary pageDict)
         {
-            using (var contentStream = await ContentStream.CombineAsync(pageDict, cancellationToken).ConfigureAwait(false))
+            var content = await ContentStream.CombineAsync(pageDict, cancellationToken).ConfigureAwait(false);
+
+            await foreach (var image in VisitContentAsync(pageDict, content, depth: 0).ConfigureAwait(false))
             {
-                await foreach (var image in VisitContentAsync(pageDict, contentStream, depth: 0).ConfigureAwait(false))
-                {
-                    yield return image;
-                }
+                yield return image;
             }
         }
 
@@ -161,28 +158,28 @@ namespace PdfToSvg.Drawing
         {
             if (objectDict.Stream != null && depth <= MaxDepth)
             {
-                MemoryStream memoryStream;
+                ArraySegment<byte> content;
 
                 // Important to not keep the file stream open when images are returned to the user, as it could cause deadlocks
                 using (var decodedStream = await objectDict.Stream.OpenDecodedAsync(cancellationToken).ConfigureAwait(false))
                 {
-                    memoryStream = await decodedStream.ToMemoryStreamAsync(cancellationToken).ConfigureAwait(false);
+                    content = await decodedStream.ToArraySegmentAsync(cancellationToken).ConfigureAwait(false);
                 }
 
-                await foreach (var image in VisitContentAsync(objectDict, memoryStream, depth).ConfigureAwait(false))
+                await foreach (var image in VisitContentAsync(objectDict, content, depth).ConfigureAwait(false))
                 {
                     yield return image;
                 }
             }
         }
 
-        private async IAsyncEnumerable<Image> VisitContentAsync(PdfDictionary ownerDict, Stream contentStream, int depth)
+        private async IAsyncEnumerable<Image> VisitContentAsync(PdfDictionary ownerDict, ArraySegment<byte> content, int depth)
         {
             var handledGStates = new HashSet<PdfName>();
             var handledObjects = new HashSet<PdfName>();
             var handledPatterns = new HashSet<PdfName>();
 
-            foreach (var op in ContentParser.Parse(contentStream))
+            foreach (var op in ContentParser.Parse(content))
             {
                 switch (op.Operator)
                 {
@@ -237,12 +234,11 @@ namespace PdfToSvg.Drawing
 
         public IEnumerable<Image> VisitPage(PdfDictionary pageDict)
         {
-            using (var contentStream = ContentStream.Combine(pageDict, cancellationToken))
+            var content = ContentStream.Combine(pageDict, cancellationToken);
+
+            foreach (var image in VisitContent(pageDict, content, depth: 0))
             {
-                foreach (var image in VisitContent(pageDict, contentStream, depth: 0))
-                {
-                    yield return image;
-                }
+                yield return image;
             }
         }
 
@@ -250,28 +246,28 @@ namespace PdfToSvg.Drawing
         {
             if (objectDict.Stream != null && depth <= MaxDepth)
             {
-                MemoryStream memoryStream;
+                ArraySegment<byte> content;
 
                 // Important to not keep the file stream open when images are returned to the user, as it could cause deadlocks
                 using (var decodedStream = objectDict.Stream.OpenDecoded(cancellationToken))
                 {
-                    memoryStream = decodedStream.ToMemoryStream(cancellationToken);
+                    content = decodedStream.ToArraySegment(cancellationToken);
                 }
 
-                foreach (var image in VisitContent(objectDict, memoryStream, depth))
+                foreach (var image in VisitContent(objectDict, content, depth))
                 {
                     yield return image;
                 }
             }
         }
 
-        private IEnumerable<Image> VisitContent(PdfDictionary ownerDict, Stream contentStream, int depth)
+        private IEnumerable<Image> VisitContent(PdfDictionary ownerDict, ArraySegment<byte> content, int depth)
         {
             var handledGStates = new HashSet<PdfName>();
             var handledObjects = new HashSet<PdfName>();
             var handledPatterns = new HashSet<PdfName>();
 
-            foreach (var op in ContentParser.Parse(contentStream))
+            foreach (var op in ContentParser.Parse(content))
             {
                 switch (op.Operator)
                 {

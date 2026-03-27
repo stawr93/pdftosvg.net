@@ -10,7 +10,8 @@ using System.Text;
 
 namespace PdfToSvg.Fonts.CompactFonts
 {
-    internal class CompactFontDict
+    [CompactFontDict]
+    internal partial class CompactFontDict
     {
         [CompactFontDictOperator(0)]
         public string? Version { get; set; }

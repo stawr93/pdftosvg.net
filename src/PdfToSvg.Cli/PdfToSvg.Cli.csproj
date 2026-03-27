@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <Compile Include="..\PdfToSvg\**\*.cs" Visible="false" />
+    <Compile Remove="..\PdfToSvg\bin\Properties\AssemblyInfo.cs" Visible="false" />
     <Compile Remove="..\PdfToSvg\bin\**\*.cs" Visible="false" />
     <Compile Remove="..\PdfToSvg\obj\**\*.cs" Visible="false" />
   </ItemGroup>
@@ -23,6 +24,10 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PdfToSvg.SourceGenerators\PdfToSvg.SourceGenerators.csproj" SetTargetFramework="TargetFramework=netstandard2.0" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
 </Project>

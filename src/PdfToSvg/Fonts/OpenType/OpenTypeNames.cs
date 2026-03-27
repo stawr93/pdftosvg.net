@@ -138,15 +138,7 @@ namespace PdfToSvg.Fonts.OpenType
                 .ThenBy(rec => rec.LanguageID == 1033 ? 0 : 1)
                 .DistinctBy(rec => rec.NameID)
 
-                .Select(rec =>
-                {
-                    var isWindows = rec.PlatformID == OpenTypePlatformID.Windows;
-                    var encoding = isWindows ? Encoding.BigEndianUnicode : Encoding.ASCII;
-
-                    return KeyValuePair.Create(
-                        rec.NameID,
-                        encoding.GetString(rec.Content));
-                });
+                .Select(rec => KeyValuePair.Create(rec.NameID, rec.StringContent));
         }
 
         private string? GetName(OpenTypeNameID id)

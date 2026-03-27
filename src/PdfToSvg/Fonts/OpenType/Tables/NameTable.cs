@@ -150,6 +150,7 @@ namespace PdfToSvg.Fonts.OpenType.Tables
         public byte[] Content = ArrayUtils.Empty<byte>();
     }
 
+    [DebuggerDisplay("{NameID} {StringContent}")]
     internal class NameRecord
     {
         public OpenTypePlatformID PlatformID;
@@ -158,5 +159,16 @@ namespace PdfToSvg.Fonts.OpenType.Tables
         public OpenTypeNameID NameID;
 
         public byte[] Content = ArrayUtils.Empty<byte>();
+
+        public string StringContent
+        {
+            get => ContentEncoding.GetString(Content);
+            set => Content = ContentEncoding.GetBytes(value ?? "");
+        }
+
+        private Encoding ContentEncoding =>
+            PlatformID == OpenTypePlatformID.Windows
+                ? Encoding.BigEndianUnicode
+                : Encoding.ASCII;
     }
 }

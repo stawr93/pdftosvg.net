@@ -48,9 +48,8 @@ namespace PdfToSvg
         /// 
         ///     foreach (var image in await document.Images.ToListAsync())
         ///     {
-        ///         var content = await image.GetContentAsync();
         ///         var fileName = $"image{imageNo++}{image.Extension}";
-        ///         File.WriteAllBytes(fileName, content);
+        ///         await image.SaveAsync(fileName);
         ///     }
         /// }
         /// </code>
@@ -78,9 +77,8 @@ namespace PdfToSvg
         /// 
         ///     await foreach (var image in document.Images)
         ///     {
-        ///         var content = await image.GetContentAsync();
         ///         var fileName = $"image{imageNo++}{image.Extension}";
-        ///         File.WriteAllBytes(fileName, content);
+        ///         await image.SaveAsync(fileName);
         ///     }
         /// }
         /// </code>
@@ -124,9 +122,8 @@ namespace PdfToSvg
         /// 
         ///     foreach (var image in document.Images)
         ///     {
-        ///         var content = image.GetContent();
         ///         var fileName = $"image{imageNo++}{image.Extension}";
-        ///         File.WriteAllBytes(fileName, content);
+        ///         image.Save(fileName);
         ///     }
         /// }
         /// </code>

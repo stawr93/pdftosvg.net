@@ -13,8 +13,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace PdfToSvg.Fonts.OpenType
 {
@@ -70,14 +71,29 @@ namespace PdfToSvg.Fonts.OpenType
             var directory = TableDirectory.Read(data);
 
             var font = new OpenTypeFont();
-
-            foreach (var table in directory.Tables)
-            {
-                font.tables.Add(table);
-            }
-
+            font.tables.AddRange(directory.Tables);
             return font;
         }
+
+        /// <summary>
+        /// Parses only the 'name' table from an OpenType font.
+        /// </summary>
+        public static OpenTypeNames ParseNames(Stream stream, CancellationToken cancellationToken = default)
+        {
+            var directory = TableDirectory.Read(stream, tag => tag == "name", cancellationToken);
+            return new OpenTypeNames(directory.Tables);
+        }
+
+#if HAVE_ASYNC
+        /// <summary>
+        /// Parses only the 'name' table from an OpenType font.
+        /// </summary>
+        public static async Task<OpenTypeNames> ParseNamesAsync(Stream stream, CancellationToken cancellationToken = default)
+        {
+            var directory = await TableDirectory.ReadAsync(stream, tag => tag == "name", cancellationToken).ConfigureAwait(false);
+            return new OpenTypeNames(directory.Tables);
+        }
+#endif
 
         public byte[] ToByteArray()
         {

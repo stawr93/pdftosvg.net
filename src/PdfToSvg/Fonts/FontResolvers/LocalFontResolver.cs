@@ -146,10 +146,19 @@ namespace PdfToSvg.Fonts.FontResolvers
         /// <inheritdoc/>
         public override Font ResolveFont(SourceFont sourceFont, CancellationToken cancellationToken)
         {
+            string? fullFontName = null;
+            string? postScriptName = null;
+
+            if (sourceFont.IsExternalFont)
+            {
+                fullFontName = sourceFont.FullFontName;
+                postScriptName = sourceFont.PostScriptName;
+            }
+
             var fontName = sourceFont.Name;
             if (fontName == null)
             {
-                return new LocalFont("sans-serif");
+                return new LocalFont("sans-serif", fullFontName, postScriptName);
             }
 
             var fontFamily = Match(0, fontFamilies, fontName.Replace("-", "").Replace(" ", ""));
@@ -177,7 +186,7 @@ namespace PdfToSvg.Fonts.FontResolvers
             Enum.TryParse<FontWeight>(rawFontWeight, out var fontWeight);
             Enum.TryParse<FontStyle>(rawFontStyle, out var fontStyle);
 
-            return new LocalFont(fontFamily ?? "sans-serif", fontWeight, fontStyle);
+            return new LocalFont(fontFamily ?? "sans-serif", fullFontName, postScriptName, fontWeight, fontStyle);
         }
 
         private static string? Match(int startIndex, string[] propertyMatchers, string fontName)

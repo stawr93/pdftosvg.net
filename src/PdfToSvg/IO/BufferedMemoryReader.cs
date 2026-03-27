@@ -27,6 +27,8 @@ namespace PdfToSvg.IO
             length = data.Length;
         }
 
+        public BufferedMemoryReader(ArraySegment<byte> data) : this(data.Array!, data.Offset, data.Count) { }
+    
         public BufferedMemoryReader(byte[] data, int offset, int count) : base(data)
         {
             if (data == null) throw new ArgumentNullException(nameof(data));

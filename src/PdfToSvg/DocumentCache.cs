@@ -15,9 +15,54 @@ namespace PdfToSvg
 {
     internal class DocumentCache
     {
-        /// <summary>
-        /// Contains cached fonts per <see cref="FontResolver"/>. The key of the inner dictionary is a font dictionary.
-        /// </summary>
-        public ConditionalWeakTable<FontResolver, Dictionary<PdfDictionary, SharedFactory<BaseFont>>> Fonts { get; } = new();
+        private readonly 
+            ConditionalWeakTable<FontResolver,
+                ConditionalWeakTable<FontRepository,
+                    Dictionary<PdfDictionary, SharedFactory<BaseFont>>
+                >> fontCache = new();
+
+        private static readonly FontRepository emptyFontRepository = new();
+
+        private const int FontCacheMaxSize = 50;
+
+        public SharedFactory<BaseFont> GetFontFactory(PdfDictionary fontDict, FontResolver fontResolver, FontRepository fontRepository, Func<SharedFactory<BaseFont>> fontFactory)
+        {
+            // Shared cache for all empty font repositories
+            if (fontRepository.Count == 0)
+            {
+                fontRepository = emptyFontRepository;
+            }
+            
+            lock (fontCache)
+            {
+                if (!fontCache.TryGetValue(fontResolver, out var repositories))
+                {
+                    repositories = new();
+                    fontCache.Add(fontResolver, repositories);
+                }
+
+                if (!repositories.TryGetValue(fontRepository, out var factories))
+                {
+                    factories = new();
+                    repositories.Add(fontRepository, factories);
+                }
+
+                if (!factories.TryGetValue(fontDict, out var factory))
+                {
+                    if (factories.Count >= FontCacheMaxSize)
+                    {
+                        // If a PDF with many pages include duplicated fonts per page, a lot of fonts are cached and
+                        // causing OutOfMemoryException, mainly in 32-bit processes. Because of this, we will limit the
+                        // maximum number of fonts to be cached.
+                        factories.Clear();
+                    }
+
+                    factory = fontFactory();
+                    factories[fontDict] = factory;
+                }
+
+                return factory;
+            }
+        }
     }
 }

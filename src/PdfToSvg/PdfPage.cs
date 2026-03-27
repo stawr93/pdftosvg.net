@@ -151,7 +151,22 @@ namespace PdfToSvg
         ///     <paramref name="path"/> was <c>null</c>.
         /// </exception>
         /// <exception cref="ArgumentException">
-        ///     <paramref name="path"/> was an empty string.
+        ///     <paramref name="path"/> was empty or an invalid path.
+        /// </exception>
+        /// <exception cref="PathTooLongException">
+        ///     The length of <paramref name="path"/> exceeded the system maximum length.
+        /// </exception>
+        /// <exception cref="DirectoryNotFoundException">
+        ///     The directory of <paramref name="path"/> did not exist.
+        /// </exception>
+        /// <exception cref="UnauthorizedAccessException">
+        ///     The user does not have permission to write to <paramref name="path"/>.
+        /// </exception>
+        /// <exception cref="IOException">
+        ///     I/O exception while writing to <paramref name="path"/>.
+        /// </exception>
+        /// <exception cref="NotSupportedException">
+        ///     The <paramref name="path"/> is specified on an unsupported format.
         /// </exception>
         /// <exception cref="PermissionException">
         ///     Content extraction from this document is forbidden by the document author. 
@@ -193,8 +208,12 @@ namespace PdfToSvg
             document.WriteTo(writer);
             writer.Flush();
 
-            var buffer = memoryStream.GetBufferOrArray();
-            await stream.WriteAsync(buffer, 0, (int)memoryStream.Length, cancellationToken).ConfigureAwait(false);
+            if (!memoryStream.TryGetBuffer(out var buffer))
+            {
+                throw new Exception("MemoryStream unexpectedly did not allow access to its buffer");
+            }
+
+            await stream.WriteAsync(buffer.Array!, buffer.Offset, buffer.Count, cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -229,9 +248,8 @@ namespace PdfToSvg
         ///         
         ///         foreach (var image in page.Images)
         ///         {
-        ///             var content = image.GetContent();
         ///             var fileName = $"page{pageNo}_image{imageNo++}{image.Extension}";
-        ///             File.WriteAllBytes(fileName, content);
+        ///             image.Save(fileName);
         ///         }
         ///         
         ///         pageNo++;

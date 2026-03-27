@@ -30,15 +30,12 @@ namespace PdfToSvg.Imaging.Png
         {
             base.Dispose(disposing);
 
-            if (disposing)
+            if (disposing && buffer.TryGetBuffer(out var data))
             {
-                var data = buffer.GetBufferOrArray();
-
-                var dataLength = (int)buffer.Length;
                 var crc = new Crc32();
 
                 // Length 32
-                outputStream.WriteBigEndian(dataLength);
+                outputStream.WriteBigEndian(data.Count);
 
                 // Name
                 var binaryName = Encoding.UTF8.GetBytes(name);
@@ -46,8 +43,8 @@ namespace PdfToSvg.Imaging.Png
                 crc.Update(binaryName, 0, binaryName.Length);
 
                 // Data
-                outputStream.Write(data, 0, dataLength);
-                crc.Update(data, 0, dataLength);
+                outputStream.Write(data.Array!, data.Offset, data.Count);
+                crc.Update(data.Array!, data.Offset, data.Count);
 
                 // crc32: type + data
                 outputStream.WriteBigEndian(crc.Value);

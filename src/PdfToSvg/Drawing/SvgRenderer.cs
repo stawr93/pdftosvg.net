@@ -9,6 +9,7 @@ using PdfToSvg.Drawing.Paths;
 using PdfToSvg.Drawing.Patterns;
 using PdfToSvg.Fonts;
 using PdfToSvg.Imaging;
+using PdfToSvg.IO;
 using PdfToSvg.Parsing;
 using System;
 using System.Collections;
@@ -27,7 +28,8 @@ using System.Xml.Linq;
 
 namespace PdfToSvg.Drawing
 {
-    internal class SvgRenderer
+    [OperationTarget]
+    internal partial class SvgRenderer
     {
         private static readonly XNamespace ns = "http://www.w3.org/2000/svg";
         private static readonly XNamespace annotNs = "https://pdftosvg.net/xmlns/annotations";
@@ -39,11 +41,50 @@ namespace PdfToSvg.Drawing
         private static readonly string RootClassName = StableID.Generate("g", "PdfToSvg_Root");
         private static readonly string NoPrintClassName = StableID.Generate("g", "PdfToSvg_NoPrint");
         private static readonly string NoScreenClassName = StableID.Generate("g", "PdfToSvg_NoScreen");
+        private static readonly string RtlClassName = StableID.Generate("g", "PdfToSvg_Rtl");
 
         private static readonly string LinkStyle = "." + RootClassName + " a:active path{fill:#ffe4002e;}";
         private static readonly string TextStyle = "." + RootClassName + " text{white-space:pre;}";
         private static readonly string NoPrintStyle = "@media print{." + NoPrintClassName + "{display:none;}}";
         private static readonly string NoScreenStyle = "@media screen{." + NoScreenClassName + "{display:none;}}";
+
+        // The characters of right-to-left text are usually stored in the order they are read, logical order, not the
+        // order they appear on the screen, visual order.
+        //
+        // SVG viewers will apply the Unicode Bidi algorithm (https://www.unicode.org/reports/tr9/) to convert the text
+        // from logical to visual order before the text is presented on the screen.
+        //
+        // In PDFs, characters are stored in visual order from left to right.
+        //
+        // If the PDF text is extracted as-is, the SVG viewer will rearrange the text, making it unreadable.
+        //
+        // Evaluated options:
+        //
+        // * Reverse the Bidi algorithm on the text before embedding it in SVG
+        //   + Text can be extracted in the expected logical order from the SVG
+        //   - Increases the dll size as the bidirectional class of characters are not provided by .NET and must be
+        //     bundled by the lib
+        //   - The `dx` positioning attributes on <text> and <tspan> are applied on logical order rather than visual
+        //     order
+        //   - Characters might be rearranged across <tspan> bounds, making positioning more complex
+        //
+        // * Map RTL characters to PUA code points in the embedded font
+        //   + No presentational issues
+        //   - Copying or extracting text will always result in garbage
+        //
+        // * Use fixed character positions (`x` instead of `dx` attribute)
+        //   + No positioning issues
+        //   - Always wrong order when copying text from SVG viewers
+        //   - Unexpected order when extracting text from the SVG file
+        //
+        // * Use `unicode-bidi: bidi-override` to declare that the text is stored in visual order
+        //   + No positioning issues
+        //   + Bidi algorithm not needed
+        //   - Unexpected order when extracting text from the SVG file
+        //   - Undefined behavior when copying text from SVG viewers. Some copies the text in expected logical order
+        //     while others don't.
+        //
+        private static readonly string RtlTextStyle = "." + RtlClassName + " text{direction:ltr;unicode-bidi:bidi-override;}";
 
         private GraphicsState graphicsState = new GraphicsState();
         private Stack<GraphicsState> graphicsStateStack = new Stack<GraphicsState>();
@@ -79,8 +120,6 @@ namespace PdfToSvg.Drawing
         private XElement? clipWrapper;
         private string? clipWrapperId;
 
-        private static readonly OperationDispatcher dispatcher = new OperationDispatcher(typeof(SvgRenderer));
-
         private XElement style = new XElement(ns + "style");
 
         private HashSet<string> styleClassNames = new HashSet<string>();
@@ -88,6 +127,7 @@ namespace PdfToSvg.Drawing
 
         private TextBuilder textBuilder;
         private bool hasTextStyle;
+        private bool hasRtlText;
 
         private readonly PdfDictionary pageDict;
         private readonly Rectangle cropBox;
@@ -223,6 +263,13 @@ namespace PdfToSvg.Drawing
             }
 
             AddClipPaths(clipPaths.Values);
+
+            if (hasRtlText)
+            {
+                AddStyle(RtlTextStyle);
+                rootGraphics.SetAttributeValue("class", RootClassName + " " + RtlClassName);
+                defs.SetAttributeValue("class", RootClassName + " " + RtlClassName);
+            }
 
             if (!defs.HasElements)
             {
@@ -423,7 +470,7 @@ namespace PdfToSvg.Drawing
                     else
                     {
                         Format(output, item, depth);
-                        output.Append(" ");
+                        output.Append(' ');
                     }
                 }
             }
@@ -450,7 +497,7 @@ namespace PdfToSvg.Drawing
                 {
                     output.Append("[ ");
                     FormatArray(output, enumerable, depth);
-                    output.Append("]");
+                    output.Append(']');
                 }
                 else
                 {
@@ -483,14 +530,13 @@ namespace PdfToSvg.Drawing
         {
             var renderer = new SvgRenderer(pageDict, options, documentCache, optionalContentGroupManager, cancellationToken);
 
-            using (var contentStream = ContentStream.Combine(pageDict, cancellationToken))
+            var content = ContentStream.Combine(pageDict, cancellationToken);
+            
+            foreach (var op in ContentParser.Parse(content))
             {
-                foreach (var op in ContentParser.Parse(contentStream))
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    renderer.DebugLogOperation(op.Operator, op.Operands);
-                    dispatcher.Dispatch(renderer, op.Operator, op.Operands);
-                }
+                cancellationToken.ThrowIfCancellationRequested();
+                renderer.DebugLogOperation(op.Operator, op.Operands);
+                Proxy.Invoke(renderer, op.Operator, op.Operands);
             }
 
             renderer.AfterDispatch();
@@ -502,14 +548,13 @@ namespace PdfToSvg.Drawing
         {
             var renderer = new SvgRenderer(pageDict, options, documentCache, optionalContentGroupManager, cancellationToken);
 
-            using (var contentStream = await ContentStream.CombineAsync(pageDict, cancellationToken).ConfigureAwait(false))
+            var content = await ContentStream.CombineAsync(pageDict, cancellationToken).ConfigureAwait(false);
+            
+            foreach (var op in ContentParser.Parse(content))
             {
-                foreach (var op in ContentParser.Parse(contentStream))
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    renderer.DebugLogOperation(op.Operator, op.Operands);
-                    await dispatcher.DispatchAsync(renderer, op.Operator, op.Operands).ConfigureAwait(false);
-                }
+                cancellationToken.ThrowIfCancellationRequested();
+                renderer.DebugLogOperation(op.Operator, op.Operands);
+                await Proxy.InvokeAsync(renderer, op.Operator, op.Operands).ConfigureAwait(false);
             }
 
             renderer.AfterDispatch();
@@ -621,7 +666,7 @@ namespace PdfToSvg.Drawing
         [Operation("gs/D")]
         private void gs_D_DashArray(object[] args)
         {
-            dispatcher.Dispatch(this, "d", args);
+            Proxy.Invoke(this, "d", args);
         }
 
         [Operation("gs/CA")]
@@ -704,7 +749,7 @@ namespace PdfToSvg.Drawing
                 foreach (var state in extGState)
                 {
                     DebugLogOperation(state.Key.ToString(), new[] { state.Value }, isGs: true);
-                    dispatcher.Dispatch(this, "gs" + state.Key, new[] { state.Value });
+                    Proxy.Invoke(this, "gs" + state.Key, new[] { state.Value });
                 }
             }
         }
@@ -1162,17 +1207,16 @@ namespace PdfToSvg.Drawing
                     preparations();
 
                     // Buffer content since we might need to access the input file while rendering the page
-                    using var bufferedFormContent = new MemoryStream();
+                    byte[] content;
                     using (var decodedFormContent = contentStream.OpenDecoded(cancellationToken))
                     {
-                        decodedFormContent.CopyTo(bufferedFormContent);
+                        content = decodedFormContent.ToArray();
                     }
-                    bufferedFormContent.Position = 0;
 
-                    foreach (var operation in ContentParser.Parse(bufferedFormContent))
+                    foreach (var operation in ContentParser.Parse(content))
                     {
                         DebugLogOperation(operation.Operator, operation.Operands);
-                        dispatcher.Dispatch(this, operation.Operator, operation.Operands);
+                        Proxy.Invoke(this, operation.Operator, operation.Operands);
                     }
                 }
                 finally
@@ -2289,7 +2333,7 @@ namespace PdfToSvg.Drawing
         [Operation("Tf")]
         private void Tf_Font(PdfName fontName, double fontSize)
         {
-            var newFont = resources.GetFont(fontName, options.FontResolver, documentCache, cancellationToken);
+            var newFont = resources.GetFont(fontName, options.FontResolver, options.FontRepository, documentCache, cancellationToken);
             if (newFont == null)
             {
                 Log.WriteLine($"Could not find a font replacement for {fontName}.");
@@ -2304,7 +2348,7 @@ namespace PdfToSvg.Drawing
         private async Task Tf_FontAsync(PdfName fontName, double fontSize)
         {
             var newFont = await resources
-                .GetFontAsync(fontName, options.FontResolver, documentCache, cancellationToken)
+                .GetFontAsync(fontName, options.FontResolver, options.FontRepository, documentCache, cancellationToken)
                 .ConfigureAwait(false);
 
             if (newFont == null)
@@ -2325,7 +2369,7 @@ namespace PdfToSvg.Drawing
 
             if (args.Length > 0 && args[0] is PdfDictionary fontDict)
             {
-                font = BaseFont.Create(fontDict, options.FontResolver, cancellationToken);
+                font = BaseFont.Create(fontDict, options.FontResolver, options.FontRepository, cancellationToken);
             }
 
             if (args.Length > 1 && MathUtils.ToDouble(args[1], out var dblFontSize))
@@ -2543,7 +2587,7 @@ namespace PdfToSvg.Drawing
             var substituteFont = style.Font.SubstituteFont;
             if (style.HasGlyph0Reference && substituteFont is WebFont)
             {
-                substituteFont = style.Font.GetSubstituteFontWithDuplicatedGlyph0(options.FontResolver, cancellationToken);
+                substituteFont = style.Font.GetSubstituteFontWithDuplicatedGlyph0(options.FontResolver, options.FontRepository, cancellationToken);
             }
 
             if (substituteFont is LocalFont localFont)
@@ -2551,6 +2595,53 @@ namespace PdfToSvg.Drawing
                 fontFamily = localFont.FontFamily;
                 fontWeight = SvgConversion.FormatFontWeight(localFont.FontWeight);
                 fontStyle = SvgConversion.FormatFontStyle(localFont.FontStyle);
+
+                // Use `local(<name>)` to identify the exact font used. Which name to be used is platform specific.
+                // According to the CSS spec, the PostScript name (nameID = 6) is normally used, except for TrueType
+                // fonts on Windows, where the full font name (nameID = 4) is used.
+                //
+                // See:
+                // https://www.w3.org/TR/css-fonts-4/#local-font-fallback
+                // https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/At-rules/@font-face/src#localfont-face-name
+
+                var localFontNames = new[]
+                {
+                    localFont.PostScriptName,
+                    localFont.FullFontName,
+                };
+                var fontSrc = "";
+
+                for (var i = 0; i < localFontNames.Length; i++)
+                {
+                    var localFontName = localFontNames[i];
+                    if (localFontName != null && localFontName.Length > 0)
+                    {
+                        fontSrc =
+                            fontSrc +
+                            (fontSrc.Length > 0 ? "," : "") +
+                            "local(" + CssUtils.EncodeString(localFontName) + ")";
+                    }
+                }
+
+                if (fontSrc.Length > 0)
+                {
+                    var localFontFamilyName = StableID.Generate("f", fontSrc);
+
+                    if (fontFaceNames.Add(localFontFamilyName))
+                    {
+                        var fontFace = new CssPropertyCollection
+                        {
+                            { "font-family", localFontFamilyName },
+                            { "font-weight", fontWeight },
+                            { "font-style", fontStyle },
+                            { "src", fontSrc },
+                        };
+
+                        AddStyle("@font-face{" + fontFace + "}");
+                    }
+
+                    fontFamily = localFontFamilyName + "," + fontFamily;
+                }
             }
             else if (substituteFont is WebFont webFont)
             {
@@ -2582,8 +2673,8 @@ namespace PdfToSvg.Drawing
                     var fontFace = new CssPropertyCollection
                     {
                         { "font-family", webFont.FontFamily },
-                        { "font-weight", SvgConversion.FormatFontWeight(webFont.FallbackFont?.FontWeight) },
-                        { "font-style", SvgConversion.FormatFontStyle(webFont.FallbackFont?.FontStyle) },
+                        { "font-weight", fontWeight },
+                        { "font-style", fontStyle },
                         { "src", src },
                     };
 
@@ -2779,13 +2870,10 @@ namespace PdfToSvg.Drawing
 
                 graphicsState.Transform = Matrix.Translate(paragraph.X, paragraph.Y, paragraph.Matrix);
 
-                using (var contentStream = new MemoryStream(paragraph.Type3Content))
+                foreach (var op in ContentParser.Parse(paragraph.Type3Content))
                 {
-                    foreach (var op in ContentParser.Parse(contentStream))
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-                        dispatcher.Dispatch(this, op.Operator, op.Operands);
-                    }
+                    cancellationToken.ThrowIfCancellationRequested();
+                    Proxy.Invoke(this, op.Operator, op.Operands);
                 }
             }
             finally
@@ -2840,7 +2928,7 @@ namespace PdfToSvg.Drawing
 
                 if (className != null)
                 {
-                    textEl.SetAttributeValue("class", className);
+                    textEl.Add(new XAttribute("class", className));
                 }
 
                 if (singleSpan.Style.TextScaling != 100)
@@ -2858,7 +2946,9 @@ namespace PdfToSvg.Drawing
                     textEl.SetAttributeValue("dx", dx);
                 }
 
-                textEl.Value = singleSpan.Value.ToString();
+                var text = singleSpan.Value.ToString();
+                textEl.Value = text;
+                hasRtlText = hasRtlText || UnicodeBidi.MightBeRtl(text);
 
                 paragraphWidth = singleSpan.Width;
             }
@@ -2891,9 +2981,9 @@ namespace PdfToSvg.Drawing
                     paragraphWidth += span.Width;
                 }
 
-                if (!multipleClasses)
+                if (!multipleClasses && classNames[0] is string firstClassName)
                 {
-                    textEl.SetAttributeValue("class", classNames[0]);
+                    textEl.Add(new XAttribute("class", firstClassName));
                 }
 
                 for (var i = 0; i < classNames.Length; i++)
@@ -2919,7 +3009,10 @@ namespace PdfToSvg.Drawing
                         currentYOffset = span.Style.TextRisePx;
                     }
 
-                    tspan.Value = span.Value.ToString();
+                    var text = span.Value.ToString();
+                    tspan.Value = text;
+                    hasRtlText = hasRtlText || UnicodeBidi.MightBeRtl(text);
+
                     textEl.Add(tspan);
                 }
             }

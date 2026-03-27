@@ -16,6 +16,7 @@ namespace PdfToSvg.Tests
         private const string ProtectedTestFilesDirName = "Protected";
         private const string OwnTestFilesDirName = "Own";
         private const string InputDirName = "input";
+        private const string ExternalFontsDirName = "external-fonts";
         private const string ExpectedDirName = "expected";
 
 #if NET40
@@ -65,6 +66,8 @@ namespace PdfToSvg.Tests
         public static string ProtectedInputDirectory => Path.Combine(TestFilesPath, ProtectedTestFilesDirName);
 
         public static string InputDirectory => Path.Combine(TestFilesPath, OwnTestFilesDirName, InputDirName);
+
+        public static string ExternalFontsDirectory => Path.Combine(TestFilesPath, OwnTestFilesDirName, ExternalFontsDirName);
 
         public static string ExpectedDirectory => Path.Combine(TestFilesPath, OwnTestFilesDirName, ExpectedDirName);
 

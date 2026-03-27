@@ -6,11 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Reflection;
 using System.Text;
-using System.Threading.Tasks;
-
-#pragma warning disable IDE0051 // Unused methods
 
 namespace PdfToSvg.Functions.PostScript
 {
@@ -19,24 +15,51 @@ namespace PdfToSvg.Functions.PostScript
         private const double DegreesToRadians = (2d * Math.PI) / 360d;
         private const double RadiansToDegrees = 360d / (2d * Math.PI);
 
-        private static readonly Dictionary<string, PostScriptInstruction> operators;
-
-        static PostScriptOperators()
+        private static readonly Dictionary<string, PostScriptInstruction> operators = new(StringComparer.Ordinal)
         {
-            operators = typeof(PostScriptOperators)
-                .GetTypeInfo()
-                .GetMethods(BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.InvokeMethod)
-                .Select(method => new
-                {
-                    Method = method,
-                    Parameters = method.GetParameters(),
-                })
-                .Where(method => method.Parameters.Length == 1 && method.Parameters[0].ParameterType == typeof(PostScriptStack))
-                .ToDictionary(
-                    method => method.Method.Name.ToLowerInvariant(),
-                    method => (PostScriptInstruction)method.Method.CreateDelegate(typeof(PostScriptInstruction))
-                    );
-        }
+            { "add", Add },
+            { "sub", Sub },
+            { "mul", Mul },
+            { "div", Div },
+            { "idiv", Idiv },
+            { "mod", Mod },
+            { "neg", Neg },
+            { "abs", Abs },
+            { "ceiling", Ceiling },
+            { "floor", Floor },
+            { "round", Round },
+            { "truncate", Truncate },
+            { "sqrt", Sqrt },
+            { "sin", Sin },
+            { "cos", Cos },
+            { "atan", Atan },
+            { "exp", Exp },
+            { "ln", Ln },
+            { "log", Log },
+            { "cvi", Cvi },
+            { "cvr", Cvr },
+            { "eq", Eq },
+            { "ne", Ne },
+            { "gt", Gt },
+            { "ge", Ge },
+            { "lt", Lt },
+            { "le", Le },
+            { "and", And },
+            { "or", Or },
+            { "xor", Xor },
+            { "not", Not },
+            { "bitshift", BitShift },
+            { "true", True },
+            { "false", False },
+            { "if", If },
+            { "ifelse", IfElse },
+            { "pop", Pop },
+            { "exch", Exch },
+            { "dup", Dup },
+            { "copy", Copy },
+            { "index", Index },
+            { "roll", Roll },
+        };
 
         public static bool TryGetOperator(string operatorName, [MaybeNullWhen(false)] out PostScriptInstruction result)
         {

@@ -35,6 +35,15 @@ namespace PdfToSvg
     /// <seealso cref="FontResolver"/>
     public class LocalFont : Font
     {
+        /// <inheritdoc cref="LocalFont(string, string, string, FontWeight, FontStyle)"/>
+        public LocalFont(
+            string fontFamily,
+            FontWeight fontWeight = FontWeight.Normal,
+            FontStyle fontStyle = FontStyle.Normal)
+            : this(fontFamily, null, null, fontWeight, fontStyle)
+        {
+        }
+
         /// <summary>
         /// Creates a new instance of <see cref="LocalFont"/>.
         /// </summary>
@@ -44,9 +53,24 @@ namespace PdfToSvg
         /// </param>
         /// <param name="fontWeight">Optional CSS font weight value.</param>
         /// <param name="fontStyle">Optional CSS font style value.</param>
-        public LocalFont(string fontFamily, FontWeight fontWeight = FontWeight.Normal, FontStyle fontStyle = FontStyle.Normal)
+        /// <param name="fullFontName">
+        ///     Optional full font name as specified by NAME ID 4 in
+        ///     <see href="https://learn.microsoft.com/en-us/typography/opentype/spec/name">OpenType 'name' table</see>.
+        /// </param>
+        /// <param name="postScriptName">
+        ///     Optional PostScript name as specified by NAME ID 6 in
+        ///     <see href="https://learn.microsoft.com/en-us/typography/opentype/spec/name">OpenType 'name' table</see>.
+        /// </param>
+        public LocalFont(
+            string fontFamily,
+            string? fullFontName,
+            string? postScriptName,
+            FontWeight fontWeight = FontWeight.Normal,
+            FontStyle fontStyle = FontStyle.Normal)
         {
             FontFamily = fontFamily?.Trim() ?? throw new ArgumentNullException(nameof(fontFamily));
+            FullFontName = fullFontName;
+            PostScriptName = postScriptName;
             FontWeight = fontWeight;
             FontStyle = fontStyle;
 
@@ -58,6 +82,20 @@ namespace PdfToSvg
 
         /// <inheritdoc/>
         public override string FontFamily { get; }
+
+        /// <summary>
+        /// Gets the PostScript name used to address a specific local font.
+        /// This name should be equal to NAME ID 6 from the
+        /// <see href="https://learn.microsoft.com/en-us/typography/opentype/spec/name">OpenType 'name' table</see>.
+        /// </summary>
+        public string? PostScriptName { get; }
+
+        /// <summary>
+        /// Gets the full name used to address a specific local font.
+        /// This name should be equal to NAME ID 4 from the
+        /// <see href="https://learn.microsoft.com/en-us/typography/opentype/spec/name">OpenType 'name' table</see>.
+        /// </summary>
+        public string? FullFontName { get; }
 
         /// <summary>
         /// Gets the CSS font weight to use.

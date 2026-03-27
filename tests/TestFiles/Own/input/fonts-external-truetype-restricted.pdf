@@ -1,0 +1,94 @@
+%PDF-1.7
+
+xref
+0 6
+0000000000 65535 f
+0000000181 00000 n
+0000000231 00000 n
+0000000293 00000 n
+0000001658 00000 n
+0000001705 00000 n
+trailer
+<< /Root 1 0 R /Size 6 >>
+
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [ 3 0 R ] /Count 1 >> endobj
+
+3 0 obj
+<<
+   /Type /Page
+   /Parent 2 0 R
+   /Resources <<
+      /Font <<
+         /F1 <<
+            /Type /Font
+            /Subtype /Type0
+            /BaseFont 4 0 R
+            /Encoding /Identity-H
+            /DescendantFonts [
+               <<
+                  /BaseFont 4 0 R
+                  /CIDSystemInfo <<
+                     /Ordering (Identity)
+                     /Registry (Adobe)
+                     /Supplement 0
+                  >>
+                  /Type /Font
+                  /Subtype /CIDFontType2
+                  /W [ 3 [ 649 550 628 674 600 600 575 655 ] ]
+                  %         D   F   G   O   P   S   T   V
+                  /FontDescriptor <<
+                     /Type /FontDescriptor
+                     /FontName 4 0 R
+                     /Flags 32
+                     /FontBBox [33 0 427 666]
+                     /ItalicAngle 0
+                     /Ascent 900
+                     /Descent 124
+                     /CapHeight 807
+                     /StemV 0
+                     /MissingWidth 400
+                  >>
+               >>
+            ]
+         >>
+         /F2 <<
+            /Type /Font
+            /Subtype /Type1
+            /BaseFont /Times-Roman
+         >>
+      >> >>
+   /MediaBox [ 0 0 594.96 841.92 ]
+   /Contents [ 5 0 R ]
+>>
+endobj
+
+4 0 obj
+/PdfToSvgTTF-Restricted-en
+endobj
+
+5 0 obj << /Length 285 >>
+stream
+   0 0 0 rg
+
+   BT
+      120 650 Td
+      /F1 70 Tf
+      <000700030004000900060008000a0005> '
+   ET
+      
+   BT
+      120 610 Td
+      /F2 14 Tf
+      (OS/2 fsType:) '
+      0 -20 Td
+      (Restricted embedding) '
+      0 -40 Td
+      (Should NOT be embedded) '
+   ET
+endstream
+endobj
+
+startxref
+8
+%%EOF

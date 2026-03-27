@@ -121,14 +121,7 @@ namespace PdfToSvg.Fonts.CompactFonts
 
             foreach (var font in fontSet.Fonts)
             {
-                var dict = new List<KeyValuePair<int, double[]>>();
-                CompactFontDictSerializer.Serialize(
-                    target: dict,
-                    dict: font.TopDict,
-                    defaultValues: new CompactFontDict(),
-                    strings: fontSet.Strings,
-                    readOnlyStrings);
-
+                var dict = font.TopDict.Serialize(fontSet.Strings, readOnlyStrings);
                 var dictWriter = new CompactFontWriter();
                 dictWriter.WriteDict(dict);
                 topDictData.Add(dictWriter.GetBuffer());
@@ -441,32 +434,15 @@ namespace PdfToSvg.Fonts.CompactFonts
             writer.WriteIndex(charStringIndex);
         }
 
-        private ArraySegment<byte> SerializeDict
-            <[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] TDict>
-            (TDict dict)
-            where TDict : notnull, new()
-        {
-            var dictWriter = new CompactFontWriter();
-            WriteDict(dictWriter, dict);
-            return dictWriter.GetBuffer();
-        }
-
-        private void WriteDict
-            <[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] TDict>
-            (CompactFontWriter dictWriter, TDict dict)
-            where TDict : notnull, new()
-        {
-            var dictData = new List<KeyValuePair<int, double[]>>();
-            CompactFontDictSerializer.Serialize(dictData, dict, new TDict(), fontSet.Strings, readOnlyStrings);
-            dictWriter.WriteDict(dictData);
-        }
-
         private void WritePrivateDictAndSubrs(CompactFontDict fontDict, CompactFontPrivateDict privateDict)
         {
             var startPosition = writer.Position;
 
             privateDict.Subrs = null;
-            WriteDict(writer, privateDict);
+
+            var dictData = privateDict.Serialize(fontSet.Strings, readOnlyStrings);
+            writer.WriteDict(dictData);
+
             fontDict.Private = new int[] { writer.Position - startPosition, startPosition };
         }
 
@@ -478,7 +454,12 @@ namespace PdfToSvg.Fonts.CompactFonts
             {
                 WritePrivateDictAndSubrs(subFont.FontDict, subFont.PrivateDict);
 
-                fdArrayData.Add(SerializeDict(subFont.FontDict));
+                var dictWriter = new CompactFontWriter();
+
+                var dictData = subFont.FontDict.Serialize(fontSet.Strings, readOnlyStrings);
+                dictWriter.WriteDict(dictData);
+
+                fdArrayData.Add(dictWriter.GetBuffer());
             }
 
             font.TopDict.FDArray = writer.Position;

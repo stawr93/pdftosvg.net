@@ -17,71 +17,9 @@ using System.Xml.Linq;
 
 namespace PdfToSvg.Tests
 {
+    [Parallelizable(ParallelScope.Children)]
     public class ConversionTests
     {
-        private static string RecompressPngs(string svgMarkup)
-        {
-            const string DataUrlPrefix = "data:image/png;base64,";
-            XNamespace ns = "http://www.w3.org/2000/svg";
-            var svg = XElement.Parse(svgMarkup, LoadOptions.PreserveWhitespace);
-
-            var useElements = svg
-                .Descendants(ns + "use")
-                .ToLookup(el => el.Attribute("href").Value);
-
-            var maskReferences = svg
-                .Descendants(ns + "g")
-                .ToLookup(el => el.Attribute("mask")?.Value);
-
-            foreach (var image in svg.Descendants(ns + "image"))
-            {
-                var hrefAttribute = image.Attribute("href");
-                var imageRenderingAttribute = image.Attribute("image-rendering");
-                var interpolated = imageRenderingAttribute?.Value != "pixelated";
-
-                if (hrefAttribute != null && hrefAttribute.Value.StartsWith(DataUrlPrefix))
-                {
-                    var base64Png = hrefAttribute.Value.Substring(DataUrlPrefix.Length);
-                    base64Png = Convert.ToBase64String(PngTestUtils.Recompress(Convert.FromBase64String(base64Png)));
-                    hrefAttribute.Value = DataUrlPrefix + base64Png;
-                }
-            }
-
-            var orderedIds = new List<string>();
-            var ids = new HashSet<string>();
-
-            foreach (var el in svg.Descendants())
-            {
-                var id = el.Attribute("id")?.Value;
-                if (id != null && ids.Add(id))
-                {
-                    orderedIds.Add(id);
-                }
-
-                var classNames = el.Attribute("class")?.Value;
-                if (classNames != null)
-                {
-                    foreach (var className in Regex.Split(classNames, "\\s+"))
-                    {
-                        if (!string.IsNullOrEmpty(className) && ids.Add(className))
-                        {
-                            orderedIds.Add(className);
-                        }
-                    }
-                }
-            }
-
-            svgMarkup = svg.ToString(SaveOptions.DisableFormatting);
-
-            for (var i = 0; i < orderedIds.Count; i++)
-            {
-                var newId = "ID" + (i + 1).ToString(CultureInfo.InvariantCulture);
-                svgMarkup = svgMarkup.Replace(orderedIds[i], newId);
-            }
-
-            return svgMarkup;
-        }
-
         private class TestFontResolver : FontResolver
         {
             public override Font ResolveFont(SourceFont sourceFont, CancellationToken cancellationToken)
@@ -140,10 +78,10 @@ namespace PdfToSvg.Tests
                 actual = doc.Pages[0].ToSvgString(conversionOptions);
             }
 
-            actual = RecompressPngs(actual);
+            actual = PngTestUtils.RecompressPngsInSvg(actual);
             File.WriteAllText(actualSvgPath, actual, Encoding.UTF8);
 
-            var expected = File.Exists(expectedSvgPath) ? RecompressPngs(File.ReadAllText(expectedSvgPath, Encoding.UTF8)) : null;
+            var expected = File.Exists(expectedSvgPath) ? PngTestUtils.RecompressPngsInSvg(File.ReadAllText(expectedSvgPath, Encoding.UTF8)) : null;
 
             Assert.AreEqual(expected, actual);
         }
@@ -163,10 +101,10 @@ namespace PdfToSvg.Tests
                 actual = await doc.Pages[0].ToSvgStringAsync(conversionOptions);
             }
 
-            actual = RecompressPngs(actual);
+            actual = PngTestUtils.RecompressPngsInSvg(actual);
             File.WriteAllText(actualSvgPath, actual, Encoding.UTF8);
 
-            var expected = File.Exists(expectedSvgPath) ? RecompressPngs(File.ReadAllText(expectedSvgPath, Encoding.UTF8)) : null;
+            var expected = File.Exists(expectedSvgPath) ? PngTestUtils.RecompressPngsInSvg(File.ReadAllText(expectedSvgPath, Encoding.UTF8)) : null;
 
             Assert.AreEqual(expected, actual);
         }
@@ -183,10 +121,11 @@ namespace PdfToSvg.Tests
         [TestCaseSource(nameof(FontTestCases))]
         public async Task ConvertEmbeddedAsync(string fileName)
         {
-            await ConvertAsync(fileName, "embedded-" + fileName, new SvgConversionOptions
-            {
-                FontResolver = FontResolver.EmbedOpenType,
-            });
+            var options = new SvgConversionOptions();
+            options.FontRepository.AddDirectory(TestFiles.ExternalFontsDirectory, allowEmbedding: true);
+            options.FontResolver = FontResolver.EmbedOpenType;
+
+            await ConvertAsync(fileName, "embedded-" + fileName, options);
         }
 #endif
 
@@ -202,10 +141,21 @@ namespace PdfToSvg.Tests
         [TestCaseSource(nameof(FontTestCases))]
         public void ConvertEmbeddedSync(string fileName)
         {
-            ConvertSync(fileName, "embedded-" + fileName, new SvgConversionOptions
-            {
-                FontResolver = FontResolver.EmbedOpenType,
-            });
+            var options = new SvgConversionOptions();
+            options.FontRepository.AddDirectory(TestFiles.ExternalFontsDirectory, allowEmbedding: true);
+            options.FontResolver = FontResolver.EmbedOpenType;
+
+            ConvertSync(fileName, "embedded-" + fileName, options);
+        }
+
+        [TestCaseSource(nameof(ExternalFontTestCases))]
+        public void ConvertNonEmbeddedSync(string fileName)
+        {
+            var options = new SvgConversionOptions();
+            options.FontRepository.AddDirectory(TestFiles.ExternalFontsDirectory, allowEmbedding: false);
+            options.FontResolver = FontResolver.EmbedOpenType;
+
+            ConvertSync(fileName, "nonembedded-" + fileName, options);
         }
 
         [Test]
@@ -344,6 +294,17 @@ namespace PdfToSvg.Tests
             {
                 return Directory
                     .EnumerateFiles(Path.Combine(TestFiles.InputDirectory), "fonts-*.pdf")
+                    .Select(path => new TestCaseData(Path.GetFileName(path)))
+                    .ToList();
+            }
+        }
+
+        public static List<TestCaseData> ExternalFontTestCases
+        {
+            get
+            {
+                return Directory
+                    .EnumerateFiles(Path.Combine(TestFiles.InputDirectory), "fonts-external-*.pdf")
                     .Select(path => new TestCaseData(Path.GetFileName(path)))
                     .ToList();
             }

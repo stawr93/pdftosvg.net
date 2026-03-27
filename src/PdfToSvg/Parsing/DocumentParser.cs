@@ -11,7 +11,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
+//using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -51,13 +51,22 @@ namespace PdfToSvg.Parsing
         {
             var str = Encoding.ASCII.GetString(buffer, offset, count);
 
-            var version = Regex.Match(str, "%PDF-[12].\\d");
-            if (!version.Success)
+            // Equal regex: %PDF-[12]\.\d
+
+            const string Prefix = "%PDF-";
+            var index = str.IndexOf(Prefix);
+            
+            if (index < 0 ||
+                index + Prefix.Length + 2 >= str.Length ||
+                str[index + Prefix.Length + 1] != '.' ||
+                "12".IndexOf(str[index + Prefix.Length + 0]) < 0 ||
+                "0123456789".IndexOf(str[index + Prefix.Length + 2]) < 0
+                )
             {
                 throw ParserExceptions.HeaderNotFound();
             }
 
-            return version.Index;
+            return index;
         }
 
         public int ReadFileHeaderOffset()
@@ -78,15 +87,39 @@ namespace PdfToSvg.Parsing
 
         private static long ReadStartXRef(byte[] buffer, int offset, int count)
         {
+            const string Startxref = "startxref";
+            const string Whitespace = "\0\t\n\f\r ";
+            const string EofMarker = "%%EOF";
+
             var str = Encoding.ASCII.GetString(buffer, offset, count);
 
-            var eof = Regex.Match(str, "startxref[\0\t\n\f\r ]*([0-9]+)[\0\t\n\f\r ]*%%EOF", RegexOptions.RightToLeft);
-            if (!eof.Success)
+            var headCursor = str.Length;
+
+            while (headCursor >= 0)
             {
-                return -1;
+                var index = str.LastIndexOf(Startxref, headCursor, headCursor + 1);
+                if (index < 0)
+                {
+                    return -1;
+                }
+                headCursor = index - 1;
+
+                var matcher = new PatternMatcher(str, index + Startxref.Length);
+
+                matcher.SkipChars(Whitespace, max: 200);
+
+                if (matcher.ReadInt64(out var startXrefIndex))
+                {
+                    matcher.SkipChars(Whitespace, max: 200);
+
+                    if (matcher.ReadString(EofMarker))
+                    {
+                        return startXrefIndex;
+                    }
+                }
             }
 
-            return long.Parse(eof.Groups[1].Value, CultureInfo.InvariantCulture);
+            return -1;
         }
 
         public long ReadStartXRef()
@@ -111,7 +144,7 @@ namespace PdfToSvg.Parsing
         }
 #endif
 
-        public IndirectObject? ReadIndirectObject(Dictionary<PdfObjectId, object?>? objectTable = null)
+        public PdfObjectId? ReadIndirectObjectId()
         {
             if (!TryReadInteger(out var objectNumber) ||
                 !TryReadInteger(out var generation) ||
@@ -121,9 +154,13 @@ namespace PdfToSvg.Parsing
                 return null;
             }
 
+            return new PdfObjectId(objectNumber, generation);
+        }
+
+        public object? ReadIndirectObjectContent(PdfObjectId objectId, Dictionary<PdfObjectId, object?>? objectTable = null)
+        {
             var end = false;
 
-            var objectId = new PdfObjectId(objectNumber, generation);
             object? objectValue = null;
             PdfStream? objectStream = null;
 
@@ -197,7 +234,7 @@ namespace PdfToSvg.Parsing
                 objectValueDict.MakeIndirectObject(objectId, objectStream);
             }
 
-            return new IndirectObject(objectId, objectValue);
+            return objectValue;
         }
 
         public void ReadXRefTable(XRefTable xrefTable)
@@ -446,28 +483,43 @@ namespace PdfToSvg.Parsing
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                if (objects.ContainsKey(uncompressedObjectRef.ObjectId))
+                lexer.Seek(uncompressedObjectRef.ByteOffset, SeekOrigin.Begin);
+
+                var objectId = ReadIndirectObjectId();
+                if (objectId == null)
                 {
                     continue;
                 }
 
-                lexer.Seek(uncompressedObjectRef.ByteOffset, SeekOrigin.Begin);
-
-                var obj = ReadIndirectObject(objects);
-                if (obj != null)
+                if (objects.ContainsKey(objectId.Value))
                 {
-                    if (uncompressedObjectRef.ObjectId == obj.ID)
-                    {
-                        objects[uncompressedObjectRef.ObjectId] = obj.Value;
-                    }
-                    else
-                    {
-                        Log.WriteLine(
-                            "Object at offset {0} was referred to as {1} but called itself {2}. " +
-                            "The incorrect reference was ignored.",
-                            uncompressedObjectRef.ByteOffset, uncompressedObjectRef.ObjectId, obj.ID);
-                    }
+                    continue;
                 }
+
+                var objectContent = ReadIndirectObjectContent(objectId.Value, objects);
+
+                // See #60
+                //
+                // The standard does not specify how inconsistencies should be handled. Most PDF readers seem to
+                // have implemented it in different ways, as can be seen by comparing the output of the xref test
+                // files in different readers.
+                //
+                // My guess is that the id of the object itself is of highest chance to be correct if it differs
+                // from the xref table.
+                //
+                // Another option would be to reject the xref table when encountering inconsistencies and use
+                // RebuildXRefTable() to scan through the document for objects. That would end up with the same
+                // result, but with the risk of indexing deleted objects, so it is likely a worse option.
+                //
+                if (uncompressedObjectRef.ObjectId != objectId.Value)
+                {
+                    Log.WriteLine(
+                        "Object at offset {0} was referred to as {1} but called itself {2}. " +
+                        "Assuming {2} as ID.",
+                        uncompressedObjectRef.ByteOffset, uncompressedObjectRef.ObjectId, objectId.Value);
+                }
+
+                objects[objectId.Value] = objectContent;
             }
         }
 
@@ -552,17 +604,20 @@ namespace PdfToSvg.Parsing
                 else if (nextLexeme.Token == Token.Integer)
                 {
                     // Cross reference stream
-                    var xrefTableObject = ReadIndirectObject();
+                    var xrefTableObjectId = ReadIndirectObjectId();
+                    var xrefTableDict = xrefTableObjectId != null
+                        ? ReadIndirectObjectContent(xrefTableObjectId.Value) as PdfDictionary
+                        : null;
 
-                    if (xrefTableObject?.Value is PdfDictionary dict)
+                    if (xrefTableDict != null)
                     {
-                        ReadXRefStream(xrefTable, dict, cancellationToken);
+                        ReadXRefStream(xrefTable, xrefTableDict, cancellationToken);
 
-                        byteOffsetLastXRef = dict.GetValueOrDefault(Names.Prev, -1);
+                        byteOffsetLastXRef = xrefTableDict.GetValueOrDefault(Names.Prev, -1);
 
                         if (!trailerSet)
                         {
-                            xrefTable.Trailer = dict;
+                            xrefTable.Trailer = xrefTableDict;
                             trailerSet = true;
                         }
                     }

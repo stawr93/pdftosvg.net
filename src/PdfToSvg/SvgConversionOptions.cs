@@ -105,6 +105,13 @@ namespace PdfToSvg
         }
 
         /// <summary>
+        /// Gets a repository where to look for non-embedded fonts.
+        /// </summary>
+        /// <inheritdoc cref="PdfToSvg.FontRepository" path="/remarks"/>
+        /// <inheritdoc cref="PdfToSvg.FontRepository" path="/example"/>
+        public FontRepository FontRepository { get; set; } = new();
+
+        /// <summary>
         /// Gets or sets the minimum stroke width that will be used in the resulting SVG.
         /// If the PDF use a thinner stroke width, it will be replaced with this width.
         /// The default value is 0.5.

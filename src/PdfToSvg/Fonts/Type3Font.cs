@@ -126,7 +126,7 @@ namespace PdfToSvg.Fonts
 
                 using (var contentStream = charProc.Stream.OpenDecoded(cancellationToken))
                 {
-                    glyphDefinition = contentStream.ToArray();
+                    glyphDefinition = contentStream.ToArray(cancellationToken);
                     glyphDefinitions[charCode] = glyphDefinition;
                 }
 
